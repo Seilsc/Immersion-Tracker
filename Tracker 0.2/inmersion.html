@@ -1,0 +1,1990 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inmersión — rastreador de exposición a idiomas</title>
+<style>
+  :root {
+    --bg: #f5f1e8;
+    --surface: #ffffff;
+    --ink: #1f2a24;
+    --ink-soft: #5b6760;
+    --line: #ddd6c7;
+    --accent: #b3502e;
+    --accent-soft: #f0ddd2;
+    --green: #2f5d4f;
+    --green-soft: #dde9e2;
+    --blue: #2c4a7a;
+    --blue-soft: #dde6f5;
+    --radius: 14px;
+    --mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    --serif: "Source Serif Pro", Georgia, serif;
+    --sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body { min-height: 100vh; }
+
+  /* ── Layout ── */
+  .app-shell {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--ink);
+    color: #fff;
+    padding: 1.75rem 1rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-brand {
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  .sidebar-brand span {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 0.3rem;
+    font-weight: 400;
+  }
+
+  .nav-group-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin: 1.1rem 0 0.4rem 0.5rem;
+  }
+
+  .nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13.5px;
+    font-family: var(--sans);
+    color: rgba(255,255,255,0.7);
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .nav-btn:hover { background: rgba(255,255,255,0.07); color: #fff; }
+  .nav-btn.active { background: rgba(255,255,255,0.12); color: #fff; }
+
+  .nav-btn .icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+
+  /* ── Main ── */
+  .main {
+    padding: 2.5rem 2rem 5rem;
+    max-width: 900px;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Page headers ── */
+  .page-head { margin-bottom: 2rem; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.5rem;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 600;
+    line-height: 1.15;
+    margin: 0 0 0.5rem;
+  }
+  .lede {
+    font-size: 14px;
+    color: var(--ink-soft);
+    max-width: 52ch;
+    line-height: 1.65;
+    margin: 0;
+  }
+
+  /* ── Totals strip ── */
+  .totals {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+
+  .total-cell {
+    background: var(--surface);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .total-cell.grand { background: var(--green); color: #fff; }
+
+  .total-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .total-cell.grand .total-label { color: rgba(255,255,255,0.7); }
+
+  .total-value {
+    font-family: var(--serif);
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+
+  /* ── Language selector ── */
+  .lang-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.75rem;
+  }
+
+  .lang-bar label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .lang-bar select {
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 13px;
+    font-family: var(--sans);
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .lang-bar select:focus { outline: none; border-color: var(--accent); }
+
+  .btn-add-lang {
+    padding: 0.45rem 0.8rem;
+    font-size: 13px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    cursor: pointer;
+    font-family: var(--sans);
+    color: var(--ink);
+    transition: border-color 0.15s;
+  }
+
+  .btn-add-lang:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Sections ── */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .section-head h2 {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  .section-help {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0.2rem 0 1rem;
+    line-height: 1.6;
+  }
+
+  /* ── Activity form ── */
+  .act-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.6rem;
+    align-items: end;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .field label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  input, select, textarea {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fdfcf9;
+    color: var(--ink);
+    font-size: 14px;
+    font-family: var(--sans);
+    transition: border-color 0.15s;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  input::placeholder { color: #b8b0a0; }
+
+  /* ── Buttons ── */
+  button {
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: #fff;
+    padding: 0.55rem 1rem;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: transform 0.08s ease, opacity 0.15s ease;
+    white-space: nowrap;
+  }
+
+  button:hover { opacity: 0.85; }
+  button:active { transform: scale(0.98); }
+
+  button.secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+
+  button.accent {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  button.danger-link {
+    background: transparent;
+    border: none;
+    color: var(--ink-soft);
+    padding: 0.15rem 0.35rem;
+    font-size: 11px;
+    font-weight: 400;
+  }
+
+  button.danger-link:hover { color: var(--accent); }
+
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* ── Entry list ── */
+  .entry-list { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.45rem; }
+
+  .entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fdfcf9;
+    font-size: 13px;
+  }
+
+  .entry-main { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
+
+  .entry-title {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .entry-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  .entry-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .entry-duration {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    background: var(--green-soft);
+    color: var(--green);
+  }
+
+  .tag.listening { background: var(--blue-soft); color: var(--blue); }
+  .tag.speaking { background: #fef3c7; color: #92400e; }
+  .tag.writing { background: #f3e8ff; color: #6b21a8; }
+  .tag.study { background: #fce7f3; color: #9d174d; }
+  .tag.reading { background: var(--green-soft); color: var(--green); }
+
+  .empty-state {
+    font-size: 13px;
+    color: var(--ink-soft);
+    padding: 1.25rem 1rem;
+    text-align: center;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    margin-top: 0.75rem;
+  }
+
+  /* ── Show cards ── */
+  .show-card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    margin-top: 0.5rem;
+    background: #fdfcf9;
+  }
+
+  .show-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .show-name { font-weight: 600; font-size: 14px; }
+  .show-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); margin-top: 0.15rem; }
+
+  .show-controls { display: flex; align-items: center; gap: 0.6rem; }
+  .ep-input { width: 70px; text-align: center; }
+  .show-total { font-family: var(--mono); font-size: 13px; color: var(--green); font-weight: 600; margin-left: auto; }
+
+  /* ── Result entries ── */
+  .result-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--green-soft);
+    font-size: 13px;
+    margin-top: 0.45rem;
+  }
+
+  .result-main { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+  .result-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .result-sub { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); }
+  .result-entry button { flex-shrink: 0; background: var(--green); border-color: var(--green); }
+
+  /* ── API Banner ── */
+  .api-banner {
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .api-banner h2 { font-family: var(--serif); font-size: 1.05rem; margin: 0 0 0.35rem; }
+  .api-banner p { font-size: 13px; color: var(--ink-soft); line-height: 1.6; margin: 0 0 0.75rem; }
+  .api-banner p a { color: var(--accent); text-decoration: underline; }
+
+  .api-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .api-row input { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 13px; }
+
+  .api-status { font-family: var(--mono); font-size: 12px; margin-top: 0.5rem; display: none; }
+  .api-status.show { display: block; }
+  .api-status.ok { color: var(--green); }
+  .api-status.err { color: var(--accent); }
+
+  /* ── Status messages ── */
+  .status-msg { font-family: var(--mono); font-size: 12px; margin-top: 0.5rem; min-height: 1em; }
+  .status-msg.ok { color: var(--green); }
+  .status-msg.err { color: var(--accent); }
+  .status-msg.pending { color: var(--ink-soft); }
+
+  /* ── Category groups for log ── */
+  .cat-group {
+    margin-bottom: 2rem;
+  }
+
+  .cat-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .cat-group-header h3 {
+    font-family: var(--serif);
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .cat-group-header .cat-total {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  /* ── Charts ── */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+  }
+
+  .chart-card h3 {
+    font-family: var(--serif);
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0 0 1rem;
+  }
+
+  .bar-chart { display: flex; flex-direction: column; gap: 0.55rem; }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 12px;
+  }
+
+  .bar-label {
+    min-width: 130px;
+    max-width: 130px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 10px;
+    background: var(--line);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 5px;
+    transition: width 0.4s ease;
+  }
+
+  .bar-val {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    min-width: 55px;
+    text-align: right;
+  }
+
+  .lang-chart { display: flex; flex-direction: column; gap: 0.55rem; }
+
+  .pie-donut {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 1rem;
+  }
+
+  .lang-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 12px;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-lang { flex: 1; font-family: var(--mono); font-size: 11px; color: var(--ink-soft); }
+  .legend-val { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+
+  .week-chart { display: flex; align-items: flex-end; gap: 4px; height: 80px; }
+
+  .week-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+
+  .week-bar {
+    width: 100%;
+    background: var(--green);
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    transition: height 0.4s ease;
+  }
+
+  .week-day {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  /* ── Duration type input ── */
+  .dur-type-tabs {
+    display: flex;
+    gap: 0.35rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .dur-tab {
+    padding: 0.3rem 0.7rem;
+    font-size: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: transparent;
+    cursor: pointer;
+    font-family: var(--mono);
+    color: var(--ink-soft);
+  }
+
+  .dur-tab.active {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #fff;
+  }
+
+  .dur-panel { display: none; }
+  .dur-panel.active { display: block; }
+
+  /* ── Activity type dropdown groups ── */
+  optgroup { font-weight: 600; }
+
+  /* ── Add language modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    width: 380px;
+    max-width: 90vw;
+  }
+
+  .modal h2 { font-family: var(--serif); font-size: 1.15rem; margin: 0 0 1rem; }
+  .modal .field { margin-bottom: 0.75rem; }
+
+  .modal-btns { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
+
+  /* ── Daily log note ── */
+  .log-note {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 0.6rem 0.85rem;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-bottom: 1rem;
+    line-height: 1.55;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 720px) {
+    .app-shell { grid-template-columns: 1fr; }
+    .sidebar {
+      position: relative;
+      height: auto;
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding: 1rem;
+      gap: 0.35rem;
+    }
+    .sidebar-brand { width: 100%; margin-bottom: 0.5rem; padding-bottom: 0.5rem; font-size: 0.9rem; }
+    .nav-group-label { display: none; }
+    .nav-btn { padding: 0.4rem 0.6rem; font-size: 12px; }
+    .main { padding: 1.25rem 1rem 4rem; }
+    .chart-grid { grid-template-columns: 1fr; }
+    .totals { grid-template-columns: repeat(2, 1fr); }
+    .act-form { grid-template-columns: 1fr; }
+  }
+
+  footer {
+    margin-top: 3rem;
+    text-align: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-family: var(--mono);
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <span>Rastreador</span>
+      Inmersión Lingüística
+    </div>
+    <div class="nav-group-label">Vistas</div>
+    <button class="nav-btn active" data-page="dashboard" onclick="switchPage('dashboard')">
+      <span class="icon">📊</span> Panel
+    </button>
+    <button class="nav-btn" data-page="log" onclick="switchPage('log')">
+      <span class="icon">✏️</span> Registrar
+    </button>
+    <div class="nav-group-label">Categorías especiales</div>
+    <button class="nav-btn" data-page="youtube" onclick="switchPage('youtube')">
+      <span class="icon">▶️</span> YouTube
+    </button>
+    <button class="nav-btn" data-page="shows" onclick="switchPage('shows')">
+      <span class="icon">📺</span> Series / Anime
+    </button>
+    <button class="nav-btn" data-page="movies" onclick="switchPage('movies')">
+      <span class="icon">🎬</span> Películas
+    </button>
+    <div class="nav-group-label">Config</div>
+    <button class="nav-btn" data-page="settings" onclick="switchPage('settings')">
+      <span class="icon">⚙️</span> Ajustes
+    </button>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ═══════════════ DASHBOARD ═══════════════ -->
+    <div class="page active" id="page-dashboard">
+      <header class="page-head">
+        <p class="eyebrow">Resumen general</p>
+        <h1>Tu inmersión en cifras</h1>
+        <p class="lede">Estadísticas acumuladas de todas tus actividades e idiomas.</p>
+      </header>
+
+      <div class="totals">
+        <div class="total-cell grand">
+          <span class="total-label">Total acumulado</span>
+          <span class="total-value" id="total-grand">0h 0m</span>
+        </div>
+        <div class="total-cell">
+          <span class="total-label">Esta semana</span>
+          <span class="total-value" id="total-week">0h 0m</span>
+        </div>
+        <div class="total-cell">
+          <span class="total-label">Hoy</span>
+          <span class="total-value" id="total-today">0h 0m</span>
+        </div>
+        <div class="total-cell">
+          <span class="total-label">Idiomas</span>
+          <span class="total-value" id="total-langs">—</span>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h3>Por idioma</h3>
+          <div id="lang-chart-area"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Esta semana</h3>
+          <div class="week-chart" id="week-chart"></div>
+        </div>
+        <div class="chart-card" style="grid-column: 1 / -1;">
+          <h3>Por tipo de actividad</h3>
+          <div class="bar-chart" id="activity-chart"></div>
+        </div>
+      </div>
+
+      <div id="recent-entries-area"></div>
+    </div>
+
+    <!-- ═══════════════ LOG ═══════════════ -->
+    <div class="page" id="page-log">
+      <header class="page-head">
+        <p class="eyebrow">Nuevo registro</p>
+        <h1>Registrar actividad</h1>
+        <p class="lede">Anota cualquier actividad de inmersión: lectura, escucha, escritura, estudio…</p>
+      </header>
+
+      <div class="lang-bar">
+        <label for="log-lang-select">Idioma:</label>
+        <select id="log-lang-select"></select>
+        <button class="btn-add-lang" onclick="openAddLangModal()">+ Idioma</button>
+      </div>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>Actividad</h2>
+        </div>
+
+        <div class="act-form">
+          <div class="field">
+            <label for="log-activity">Tipo de actividad</label>
+            <select id="log-activity">
+              <optgroup label="── Lectura ──">
+                <option value="interactive-reading-audio">Interactive Reading w/ Audio</option>
+                <option value="freeflow-reading-audio">Freeflow Reading w/ Audio</option>
+                <option value="sentence-mining-read-listen">Sentence Mining (Read+Listen)</option>
+                <option value="interactive-reading">Interactive Reading</option>
+                <option value="interlinear-reading">Interlinear Reading</option>
+                <option value="freeflow-reading">Freeflow Reading</option>
+                <option value="sentence-mining-reading">Sentence Mining (While Reading)</option>
+                <option value="uncorrected-reading-aloud">Uncorrected Reading Aloud</option>
+                <option value="corrected-reading-aloud">Corrected Reading Aloud</option>
+              </optgroup>
+              <optgroup label="── Escucha ──">
+                <option value="interactive-listening">Interactive Listening</option>
+                <option value="sentence-mining-listening">Sentence Mining (While Listening)</option>
+                <option value="transcription">Transcription</option>
+                <option value="freeflow-listening">Freeflow Listening</option>
+                <option value="half-attention-listening">Half-attention Listening</option>
+                <option value="intensive-listening">Intensive Listening</option>
+                <option value="listen-looping">Listen Looping</option>
+                <option value="ear-training">Ear Training</option>
+                <option value="subvocal-shadowing">Subvocal Shadowing</option>
+              </optgroup>
+              <optgroup label="── Habla ──">
+                <option value="crosstalk">Crosstalk</option>
+                <option value="speaking-partner">Speaking with Partner</option>
+                <option value="speaking-alone">Speaking Alone</option>
+                <option value="speaking-analysis">Speaking Analysis</option>
+                <option value="singing">Singing</option>
+                <option value="topic-talk">Topic Talk</option>
+                <option value="chorusing">Chorusing</option>
+                <option value="shadowing">Shadowing</option>
+                <option value="phrase-memorization">Phrase Memorization</option>
+                <option value="pronunciation-practice">Pronunciation Practice</option>
+                <option value="sound-study">Sound Study</option>
+              </optgroup>
+              <optgroup label="── Escritura ──">
+                <option value="assisted-writing">Assisted Writing</option>
+                <option value="writing-analysis">Writing Analysis</option>
+                <option value="unassisted-writing">Unassisted Writing</option>
+                <option value="topic-writing">Topic Writing</option>
+                <option value="copywork">Copywork</option>
+                <option value="typing-practice">Typing Practice</option>
+                <option value="handwriting-practice">Handwriting Practice</option>
+              </optgroup>
+              <optgroup label="── Estudio ──">
+                <option value="vocab-study">Vocab Study</option>
+                <option value="grammar-study">Grammar Study</option>
+                <option value="flashcard-creation">Flashcard Creation</option>
+                <option value="language-app">Language App</option>
+                <option value="language-class">Language Class</option>
+                <option value="test-prep">Test Prep</option>
+                <option value="number-practice">Number Practice</option>
+                <option value="alphabet-study">Alphabet Study</option>
+                <option value="character-study">Character Study</option>
+              </optgroup>
+              <optgroup label="── Otros ──">
+                <option value="video-games">Video Games</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="log-note">Nota (opcional)</label>
+            <input type="text" id="log-note" placeholder="título, episodio, capítulo…" />
+          </div>
+
+          <div></div>
+        </div>
+
+        <div style="margin-top: 0.75rem;">
+          <div class="dur-type-tabs">
+            <button class="dur-tab active" onclick="switchDurTab('manual')">Manual (h:mm)</button>
+            <button class="dur-tab" onclick="switchDurTab('timer')">Cronómetro</button>
+          </div>
+
+          <div class="dur-panel active" id="dur-manual">
+            <div class="act-form">
+              <div class="field">
+                <label for="log-duration">Duración (h:mm o minutos)</label>
+                <input type="text" id="log-duration" placeholder="p. ej. 1:30 o 45" />
+              </div>
+              <div class="field">
+                <label for="log-date">Fecha</label>
+                <input type="date" id="log-date" />
+              </div>
+              <button onclick="logActivity()" style="align-self:end;">Guardar</button>
+            </div>
+          </div>
+
+          <div class="dur-panel" id="dur-timer">
+            <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+              <div id="timer-display" style="font-family:var(--mono); font-size:2rem; font-weight:700; letter-spacing:0.05em; color:var(--ink);">00:00:00</div>
+              <button id="timer-start-btn" onclick="timerToggle()">▶ Iniciar</button>
+              <button class="secondary" onclick="timerReset()">Reiniciar</button>
+              <button class="accent" id="timer-save-btn" disabled onclick="timerSave()">Guardar</button>
+            </div>
+            <div class="field" style="margin-top:0.6rem; max-width:280px;">
+              <label for="log-date-timer">Fecha</label>
+              <input type="date" id="log-date-timer" />
+            </div>
+          </div>
+        </div>
+
+        <p class="status-msg" id="log-status"></p>
+      </section>
+
+      <!-- Log history -->
+      <section class="section">
+        <div class="section-head">
+          <h2>Historial reciente</h2>
+        </div>
+        <p class="section-help">Las últimas 30 entradas registradas, de más reciente a más antigua.</p>
+        <div class="entry-list" id="log-history-list"></div>
+      </section>
+    </div>
+
+    <!-- ═══════════════ YOUTUBE ═══════════════ -->
+    <div class="page" id="page-youtube">
+      <header class="page-head">
+        <p class="eyebrow">Vídeos de YouTube</p>
+        <h1>Escucha y lectura en YouTube</h1>
+        <p class="lede">Pega uno o varios enlaces. La duración real se calcula automáticamente con la API de YouTube.</p>
+      </header>
+
+      <div class="lang-bar">
+        <label for="yt-lang-select">Idioma:</label>
+        <select id="yt-lang-select"></select>
+      </div>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>Añadir vídeos</h2>
+          <span class="section-num">01</span>
+        </div>
+        <p class="section-help">Pega uno o varios enlaces (uno por línea, o separados por espacios/comas). La duración se obtiene automáticamente.</p>
+
+        <div class="field" style="margin-bottom:0.6rem;">
+          <label for="yt-input">Tipo de actividad</label>
+          <select id="yt-activity">
+            <option value="freeflow-listening">Freeflow Listening</option>
+            <option value="interactive-listening">Interactive Listening</option>
+            <option value="freeflow-reading-audio">Freeflow Reading w/ Audio</option>
+            <option value="interactive-reading-audio">Interactive Reading w/ Audio</option>
+            <option value="sentence-mining-read-listen">Sentence Mining (Read+Listen)</option>
+            <option value="half-attention-listening">Half-attention Listening</option>
+          </select>
+        </div>
+
+        <div class="field" style="margin-bottom:0.6rem;">
+          <label for="yt-input">Enlaces de YouTube</label>
+          <input type="text" id="yt-input" placeholder="https://www.youtube.com/watch?v=... , https://youtu.be/..." />
+        </div>
+        <button id="yt-add">Calcular y añadir</button>
+        <p class="status-msg" id="yt-status"></p>
+        <div class="entry-list" id="yt-list"></div>
+      </section>
+    </div>
+
+    <!-- ═══════════════ SHOWS ═══════════════ -->
+    <div class="page" id="page-shows">
+      <header class="page-head">
+        <p class="eyebrow">Series y anime</p>
+        <h1>Series y anime</h1>
+        <p class="lede">Busca por nombre en TMDB, elige el resultado correcto y lleva la cuenta de episodios vistos.</p>
+      </header>
+
+      <div class="lang-bar">
+        <label for="shows-lang-select">Idioma:</label>
+        <select id="shows-lang-select"></select>
+      </div>
+
+      <section class="section">
+        <div class="section-head"><h2>Buscar serie</h2><span class="section-num">02</span></div>
+        <p class="section-help">El tiempo se calcula multiplicando la duración media por episodio por el número de episodios vistos.</p>
+
+        <div class="field" style="margin-bottom:0.6rem;">
+          <label>Tipo de actividad</label>
+          <select id="shows-activity">
+            <option value="freeflow-listening">Freeflow Listening</option>
+            <option value="interactive-listening">Interactive Listening</option>
+            <option value="freeflow-reading-audio">Freeflow Reading w/ Audio</option>
+            <option value="interactive-reading-audio">Interactive Reading w/ Audio</option>
+            <option value="half-attention-listening">Half-attention Listening</option>
+          </select>
+        </div>
+
+        <div class="field" style="margin-bottom:0.6rem;">
+          <label for="show-search">Buscar serie o anime</label>
+          <input type="text" id="show-search" placeholder="p. ej. Attack on Titan" />
+        </div>
+        <button id="show-search-btn">Buscar en TMDB</button>
+        <p class="status-msg" id="show-status"></p>
+        <div class="entry-list" id="show-results"></div>
+        <div class="entry-list" id="show-list"></div>
+      </section>
+    </div>
+
+    <!-- ═══════════════ MOVIES ═══════════════ -->
+    <div class="page" id="page-movies">
+      <header class="page-head">
+        <p class="eyebrow">Películas</p>
+        <h1>Películas</h1>
+        <p class="lede">Busca en TMDB y añade la duración real de cada película.</p>
+      </header>
+
+      <div class="lang-bar">
+        <label for="movies-lang-select">Idioma:</label>
+        <select id="movies-lang-select"></select>
+      </div>
+
+      <section class="section">
+        <div class="section-head"><h2>Buscar película</h2><span class="section-num">03</span></div>
+        <p class="section-help">Escribe el título y elige el resultado correcto.</p>
+
+        <div class="field" style="margin-bottom:0.6rem;">
+          <label>Tipo de actividad</label>
+          <select id="movies-activity">
+            <option value="freeflow-listening">Freeflow Listening</option>
+            <option value="interactive-listening">Interactive Listening</option>
+            <option value="freeflow-reading-audio">Freeflow Reading w/ Audio</option>
+            <option value="interactive-reading-audio">Interactive Reading w/ Audio</option>
+            <option value="half-attention-listening">Half-attention Listening</option>
+          </select>
+        </div>
+
+        <div class="field" style="margin-bottom:0.6rem;">
+          <label for="movie-search">Buscar película</label>
+          <input type="text" id="movie-search" placeholder="p. ej. Your Name" />
+        </div>
+        <button id="movie-search-btn">Buscar en TMDB</button>
+        <p class="status-msg" id="movie-status"></p>
+        <div class="entry-list" id="movie-results"></div>
+        <div class="entry-list" id="movie-list"></div>
+      </section>
+    </div>
+
+    <!-- ═══════════════ SETTINGS ═══════════════ -->
+    <div class="page" id="page-settings">
+      <header class="page-head">
+        <p class="eyebrow">Configuración</p>
+        <h1>Ajustes</h1>
+        <p class="lede">API keys para cálculo automático de duraciones, y gestión de idiomas.</p>
+      </header>
+
+      <section class="api-banner">
+        <h2>Clave de la API de YouTube</h2>
+        <p>
+          Necesaria para calcular la duración automáticamente desde los enlaces de YouTube.
+          Consíguela gratis en <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>:
+          crea un proyecto → activa "YouTube Data API v3" → crea una credencial de tipo API key.
+          Se guarda solo en este navegador, nunca se envía a ningún sitio salvo a la propia API de YouTube.
+        </p>
+        <div class="api-row">
+          <input type="password" id="api-key-input" placeholder="Pega aquí tu API key de YouTube" autocomplete="off" />
+          <button id="api-key-save">Guardar</button>
+          <button class="secondary" id="api-key-clear">Borrar</button>
+        </div>
+        <p class="api-status" id="api-status"></p>
+      </section>
+
+      <section class="api-banner">
+        <h2>Clave de la API de TMDB</h2>
+        <p>
+          Necesaria para buscar series/animes y películas y obtener la duración automáticamente.
+          Consíguela gratis en <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a>
+          (crea una cuenta → Configuración → API → solicita una API Key tipo v3 auth).
+          Se guarda solo en este navegador.
+        </p>
+        <div class="api-row">
+          <input type="password" id="tmdb-key-input" placeholder="Pega aquí tu API key (v3 auth) de TMDB" autocomplete="off" />
+          <button id="tmdb-key-save">Guardar</button>
+          <button class="secondary" id="tmdb-key-clear">Borrar</button>
+        </div>
+        <p class="api-status" id="tmdb-status"></p>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>Idiomas registrados</h2></div>
+        <p class="section-help">Los idiomas que tienes dados de alta. Puedes añadir más desde cualquier página de registro.</p>
+        <div id="lang-management-list"></div>
+        <button class="secondary" style="margin-top:1rem;" onclick="openAddLangModal()">+ Añadir idioma</button>
+      </section>
+
+      <footer>
+        <p>Todos los datos se guardan localmente en tu navegador.</p>
+        <button class="secondary" id="reset-all" style="margin-top:1rem;">Reiniciar todos los datos</button>
+      </footer>
+    </div>
+
+  </main>
+</div>
+
+<!-- Add Language Modal -->
+<div class="modal-overlay" id="lang-modal">
+  <div class="modal">
+    <h2>Añadir idioma</h2>
+    <div class="field">
+      <label for="new-lang-name">Nombre del idioma</label>
+      <input type="text" id="new-lang-name" placeholder="p. ej. Japonés, Francés, Mandarín…" />
+    </div>
+    <div class="modal-btns">
+      <button class="secondary" onclick="closeAddLangModal()">Cancelar</button>
+      <button onclick="addLanguage()">Añadir</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+
+const STORAGE_KEY = "lang-immersion-tracker-v2";
+const API_KEY_STORAGE = "lang-immersion-yt-api-key";
+const TMDB_KEY_STORAGE = "lang-immersion-tmdb-api-key";
+
+// Activity type metadata
+const ACTIVITY_META = {
+  // Reading
+  "interactive-reading-audio":   { label: "Interactive Reading w/ Audio",   cat: "reading" },
+  "freeflow-reading-audio":      { label: "Freeflow Reading w/ Audio",       cat: "reading" },
+  "sentence-mining-read-listen": { label: "Sentence Mining (Read+Listen)",   cat: "reading" },
+  "interactive-reading":         { label: "Interactive Reading",             cat: "reading" },
+  "interlinear-reading":         { label: "Interlinear Reading",             cat: "reading" },
+  "freeflow-reading":            { label: "Freeflow Reading",                cat: "reading" },
+  "sentence-mining-reading":     { label: "Sentence Mining (Reading)",       cat: "reading" },
+  "uncorrected-reading-aloud":   { label: "Uncorrected Reading Aloud",       cat: "reading" },
+  "corrected-reading-aloud":     { label: "Corrected Reading Aloud",         cat: "reading" },
+  // Listening
+  "interactive-listening":       { label: "Interactive Listening",           cat: "listening" },
+  "sentence-mining-listening":   { label: "Sentence Mining (Listening)",     cat: "listening" },
+  "transcription":               { label: "Transcription",                   cat: "listening" },
+  "freeflow-listening":          { label: "Freeflow Listening",              cat: "listening" },
+  "half-attention-listening":    { label: "Half-attention Listening",        cat: "listening" },
+  "intensive-listening":         { label: "Intensive Listening",             cat: "listening" },
+  "listen-looping":              { label: "Listen Looping",                  cat: "listening" },
+  "ear-training":                { label: "Ear Training",                    cat: "listening" },
+  "subvocal-shadowing":          { label: "Subvocal Shadowing",              cat: "listening" },
+  // Speaking
+  "crosstalk":                   { label: "Crosstalk",                       cat: "speaking" },
+  "speaking-partner":            { label: "Speaking with Partner",           cat: "speaking" },
+  "speaking-alone":              { label: "Speaking Alone",                  cat: "speaking" },
+  "speaking-analysis":           { label: "Speaking Analysis",               cat: "speaking" },
+  "singing":                     { label: "Singing",                         cat: "speaking" },
+  "topic-talk":                  { label: "Topic Talk",                      cat: "speaking" },
+  "chorusing":                   { label: "Chorusing",                       cat: "speaking" },
+  "shadowing":                   { label: "Shadowing",                       cat: "speaking" },
+  "phrase-memorization":         { label: "Phrase Memorization",             cat: "speaking" },
+  "pronunciation-practice":      { label: "Pronunciation Practice",          cat: "speaking" },
+  "sound-study":                 { label: "Sound Study",                     cat: "speaking" },
+  // Writing
+  "assisted-writing":            { label: "Assisted Writing",                cat: "writing" },
+  "writing-analysis":            { label: "Writing Analysis",                cat: "writing" },
+  "unassisted-writing":          { label: "Unassisted Writing",              cat: "writing" },
+  "topic-writing":               { label: "Topic Writing",                   cat: "writing" },
+  "copywork":                    { label: "Copywork",                        cat: "writing" },
+  "typing-practice":             { label: "Typing Practice",                 cat: "writing" },
+  "handwriting-practice":        { label: "Handwriting Practice",            cat: "writing" },
+  // Study
+  "vocab-study":                 { label: "Vocab Study",                     cat: "study" },
+  "grammar-study":               { label: "Grammar Study",                   cat: "study" },
+  "flashcard-creation":          { label: "Flashcard Creation",              cat: "study" },
+  "language-app":                { label: "Language App",                    cat: "study" },
+  "language-class":              { label: "Language Class",                  cat: "study" },
+  "test-prep":                   { label: "Test Prep",                       cat: "study" },
+  "number-practice":             { label: "Number Practice",                 cat: "study" },
+  "alphabet-study":              { label: "Alphabet Study",                  cat: "study" },
+  "character-study":             { label: "Character Study",                 cat: "study" },
+  // Other
+  "video-games":                 { label: "Video Games",                     cat: "listening" },
+};
+
+const LANG_COLORS = [
+  "#2f5d4f","#b3502e","#2c4a7a","#7a2c6a","#7a6e2c","#2c7a6e",
+  "#a05040","#406090","#905080","#508040",
+];
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      // Migrate old state format
+      if (!s.languages) s.languages = ["Japonés"];
+      if (!s.entries) s.entries = [];
+      if (!s.shows) s.shows = [];
+      if (!s.movies) s.movies = [];
+      return s;
+    }
+  } catch(e) {}
+  return { languages: ["Japonés"], entries: [], shows: [], movies: [] };
+}
+
+let state = loadState();
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function getApiKey()  { return localStorage.getItem(API_KEY_STORAGE) || ""; }
+function setApiKey(k) { k ? localStorage.setItem(API_KEY_STORAGE, k) : localStorage.removeItem(API_KEY_STORAGE); }
+function getTmdbKey() { return localStorage.getItem(TMDB_KEY_STORAGE) || ""; }
+function setTmdbKey(k){ k ? localStorage.setItem(TMDB_KEY_STORAGE, k) : localStorage.removeItem(TMDB_KEY_STORAGE); }
+
+/* ═══════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════ */
+
+function formatHM(sec) {
+  const m = Math.round(sec / 60);
+  return `${Math.floor(m/60)}h ${m%60}m`;
+}
+
+function formatHMS(sec) {
+  sec = Math.round(sec);
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function parseSimpleDuration(str) {
+  if (!str) return 0;
+  str = str.trim();
+  if (str.includes(":")) {
+    const parts = str.split(":").map(s => parseInt(s,10)||0);
+    if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+    if (parts.length === 2) return parts[0]*60 + parts[1];
+  }
+  const n = parseFloat(str);
+  return isNaN(n) ? 0 : Math.round(n * 60);
+}
+
+function parseISODuration(iso) {
+  const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m) return 0;
+  return (parseInt(m[1]||0)*3600) + (parseInt(m[2]||0)*60) + parseInt(m[3]||0);
+}
+
+function extractVideoId(url) {
+  url = url.trim();
+  if (!url) return null;
+  let m = url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
+  if (m) return m[1];
+  m = url.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
+  if (m) return m[1];
+  m = url.match(/youtube\.com\/(?:shorts|embed|live)\/([A-Za-z0-9_-]{6,})/);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9_-]{11}$/.test(url)) return url;
+  return null;
+}
+
+function splitMultipleLinks(raw) {
+  return raw.split(/[\s,]+/).map(s=>s.trim()).filter(Boolean);
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function setStatus(el, text, type) {
+  el.textContent = text;
+  el.className = "status-msg" + (type ? " " + type : "");
+}
+
+function catTag(type) {
+  const meta = ACTIVITY_META[type];
+  if (!meta) return "";
+  return `<span class="tag ${meta.cat}">${meta.cat}</span>`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════════════════ */
+
+function switchPage(name) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("page-" + name).classList.add("active");
+  document.querySelector(`[data-page="${name}"]`).classList.add("active");
+  if (name === "dashboard") renderDashboard();
+  if (name === "log") renderLogHistory();
+}
+
+/* ═══════════════════════════════════════════════════════
+   LANGUAGES
+═══════════════════════════════════════════════════════ */
+
+function openAddLangModal() {
+  document.getElementById("new-lang-name").value = "";
+  document.getElementById("lang-modal").classList.add("show");
+}
+
+function closeAddLangModal() {
+  document.getElementById("lang-modal").classList.remove("show");
+}
+
+function addLanguage() {
+  const name = document.getElementById("new-lang-name").value.trim();
+  if (!name) return;
+  if (state.languages.includes(name)) { alert("Este idioma ya existe."); return; }
+  state.languages.push(name);
+  saveState();
+  closeAddLangModal();
+  renderAllLangSelects();
+  renderLangManagement();
+}
+
+function getLangColor(lang) {
+  const idx = state.languages.indexOf(lang);
+  return LANG_COLORS[idx % LANG_COLORS.length];
+}
+
+function renderAllLangSelects() {
+  ["log-lang-select","yt-lang-select","shows-lang-select","movies-lang-select"].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = state.languages.map(l => `<option value="${l}">${l}</option>`).join("");
+    if (state.languages.includes(prev)) sel.value = prev;
+  });
+}
+
+function renderLangManagement() {
+  const el = document.getElementById("lang-management-list");
+  if (!el) return;
+  if (state.languages.length === 0) {
+    el.innerHTML = '<div class="empty-state">No hay idiomas. Añade uno.</div>';
+    return;
+  }
+  el.innerHTML = "";
+  state.languages.forEach((lang, i) => {
+    const totalSec = state.entries.filter(e => e.lang === lang).reduce((s,e) => s + e.seconds, 0);
+    const div = document.createElement("div");
+    div.className = "entry";
+    div.innerHTML = `
+      <div class="entry-main">
+        <span class="entry-title" style="color:${getLangColor(lang)}">● ${lang}</span>
+        <span class="entry-sub">${formatHM(totalSec)} totales</span>
+      </div>
+      <div class="entry-right">
+        <button class="danger-link" onclick="removeLang(${i})">eliminar</button>
+      </div>
+    `;
+    el.appendChild(div);
+  });
+}
+
+function removeLang(i) {
+  const lang = state.languages[i];
+  if (!confirm(`¿Eliminar "${lang}" y todas sus entradas?`)) return;
+  state.languages.splice(i, 1);
+  state.entries = state.entries.filter(e => e.lang !== lang);
+  saveState();
+  renderAllLangSelects();
+  renderLangManagement();
+}
+
+/* ═══════════════════════════════════════════════════════
+   ACTIVITY LOG
+═══════════════════════════════════════════════════════ */
+
+function logActivity() {
+  const lang = document.getElementById("log-lang-select").value;
+  const activity = document.getElementById("log-activity").value;
+  const note = document.getElementById("log-note").value.trim();
+  const durStr = document.getElementById("log-duration").value;
+  const dateVal = document.getElementById("log-date").value || todayStr();
+  const statusEl = document.getElementById("log-status");
+
+  const seconds = parseSimpleDuration(durStr);
+  if (seconds <= 0) {
+    setStatus(statusEl, "Introduce una duración válida (p.ej. 1:30 o 45).", "err");
+    return;
+  }
+
+  state.entries.push({ lang, activity, note, seconds, date: dateVal, id: Date.now() });
+  saveState();
+
+  setStatus(statusEl, `✓ Guardado: ${ACTIVITY_META[activity]?.label || activity} — ${formatHMS(seconds)}`, "ok");
+  document.getElementById("log-duration").value = "";
+  document.getElementById("log-note").value = "";
+
+  renderLogHistory();
+}
+
+function renderLogHistory() {
+  const el = document.getElementById("log-history-list");
+  if (!el) return;
+  const recent = [...state.entries].reverse().slice(0, 30);
+  if (recent.length === 0) {
+    el.innerHTML = '<div class="empty-state">Aún no has registrado ninguna actividad.</div>';
+    return;
+  }
+  el.innerHTML = "";
+  recent.forEach((entry) => {
+    const meta = ACTIVITY_META[entry.activity] || { label: entry.activity, cat: "reading" };
+    const div = document.createElement("div");
+    div.className = "entry";
+    div.innerHTML = `
+      <div class="entry-main">
+        <span class="entry-title">${meta.label}${entry.note ? ` — ${entry.note}` : ""}</span>
+        <span class="entry-sub">${entry.lang} · ${entry.date}</span>
+      </div>
+      <div class="entry-right">
+        ${catTag(entry.activity)}
+        <span class="entry-duration">${formatHMS(entry.seconds)}</span>
+        <button class="danger-link" onclick="deleteEntry(${entry.id})">×</button>
+      </div>
+    `;
+    el.appendChild(div);
+  });
+}
+
+function deleteEntry(id) {
+  state.entries = state.entries.filter(e => e.id !== id);
+  saveState();
+  renderLogHistory();
+  renderDashboard();
+}
+
+/* ═══════════════════════════════════════════════════════
+   TIMER
+═══════════════════════════════════════════════════════ */
+
+let timerInterval = null;
+let timerStart = null;
+let timerElapsed = 0;
+let timerRunning = false;
+
+function timerToggle() {
+  if (timerRunning) {
+    clearInterval(timerInterval);
+    timerElapsed += Date.now() - timerStart;
+    timerRunning = false;
+    document.getElementById("timer-start-btn").textContent = "▶ Continuar";
+    document.getElementById("timer-save-btn").disabled = false;
+  } else {
+    timerStart = Date.now();
+    timerRunning = true;
+    timerInterval = setInterval(updateTimerDisplay, 1000);
+    document.getElementById("timer-start-btn").textContent = "⏸ Pausar";
+    document.getElementById("timer-save-btn").disabled = true;
+  }
+}
+
+function timerReset() {
+  clearInterval(timerInterval);
+  timerRunning = false;
+  timerElapsed = 0;
+  timerStart = null;
+  document.getElementById("timer-display").textContent = "00:00:00";
+  document.getElementById("timer-start-btn").textContent = "▶ Iniciar";
+  document.getElementById("timer-save-btn").disabled = true;
+}
+
+function updateTimerDisplay() {
+  const totalMs = timerElapsed + (timerRunning ? Date.now() - timerStart : 0);
+  const sec = Math.floor(totalMs / 1000);
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  document.getElementById("timer-display").textContent =
+    String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+}
+
+function timerSave() {
+  const totalMs = timerElapsed;
+  const seconds = Math.round(totalMs / 1000);
+  if (seconds < 5) { alert("El tiempo es demasiado corto."); return; }
+
+  const lang = document.getElementById("log-lang-select").value;
+  const activity = document.getElementById("log-activity").value;
+  const note = document.getElementById("log-note").value.trim();
+  const dateVal = document.getElementById("log-date-timer").value || todayStr();
+
+  state.entries.push({ lang, activity, note, seconds, date: dateVal, id: Date.now() });
+  saveState();
+
+  setStatus(document.getElementById("log-status"), `✓ Guardado: ${ACTIVITY_META[activity]?.label || activity} — ${formatHMS(seconds)}`, "ok");
+  timerReset();
+  renderLogHistory();
+}
+
+function switchDurTab(tab) {
+  document.querySelectorAll(".dur-tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".dur-panel").forEach(p => p.classList.remove("active"));
+  document.getElementById("dur-" + tab).classList.add("active");
+  document.querySelectorAll(".dur-tab").forEach(t => {
+    if (t.getAttribute("onclick").includes(tab)) t.classList.add("active");
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   DASHBOARD / CHARTS
+═══════════════════════════════════════════════════════ */
+
+function renderDashboard() {
+  const all = state.entries;
+
+  const today = todayStr();
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 6);
+  const weekAgoStr = weekAgo.toISOString().slice(0,10);
+
+  const totalSec = all.reduce((s,e) => s + e.seconds, 0);
+  const todaySec = all.filter(e => e.date === today).reduce((s,e) => s + e.seconds, 0);
+  const weekSec  = all.filter(e => e.date >= weekAgoStr).reduce((s,e) => s + e.seconds, 0);
+
+  document.getElementById("total-grand").textContent = formatHM(totalSec);
+  document.getElementById("total-week").textContent  = formatHM(weekSec);
+  document.getElementById("total-today").textContent = formatHM(todaySec);
+  document.getElementById("total-langs").textContent = state.languages.length || "—";
+
+  // Lang chart
+  const langTotals = {};
+  state.languages.forEach(l => langTotals[l] = 0);
+  all.forEach(e => { if (langTotals[e.lang] !== undefined) langTotals[l] = (langTotals[e.lang] || 0) + e.seconds; });
+  all.forEach(e => { langTotals[e.lang] = (langTotals[e.lang] || 0) + e.seconds; });
+
+  const langChartArea = document.getElementById("lang-chart-area");
+  const sortedLangs = state.languages.sort((a,b) => (langTotals[b]||0) - (langTotals[a]||0));
+  const maxLang = Math.max(1, ...sortedLangs.map(l => langTotals[l]||0));
+
+  langChartArea.innerHTML = `<div class="bar-chart">
+    ${sortedLangs.map(l => {
+      const sec = langTotals[l] || 0;
+      const pct = Math.round((sec/maxLang)*100);
+      const color = getLangColor(l);
+      return `<div class="bar-row">
+        <div class="bar-label">${l}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="bar-val">${formatHM(sec)}</div>
+      </div>`;
+    }).join("")}
+  </div>`;
+
+  // Week chart
+  const days = ["Lu","Ma","Mi","Ju","Vi","Sá","Do"];
+  const weekData = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0,10);
+    const sec = all.filter(e => e.date === ds).reduce((s,e) => s + e.seconds, 0);
+    const dow = d.getDay(); // 0=Sun
+    weekData.push({ label: days[(dow+6)%7], sec });
+  }
+  const maxWeek = Math.max(1, ...weekData.map(d => d.sec));
+  document.getElementById("week-chart").innerHTML = weekData.map(d => {
+    const h = Math.max(2, Math.round((d.sec/maxWeek)*70));
+    return `<div class="week-col">
+      <div class="week-bar" style="height:${h}px" title="${formatHM(d.sec)}"></div>
+      <span class="week-day">${d.label}</span>
+    </div>`;
+  }).join("");
+
+  // Activity chart
+  const actTotals = {};
+  all.forEach(e => { actTotals[e.activity] = (actTotals[e.activity]||0) + e.seconds; });
+  const sortedActs = Object.entries(actTotals).sort((a,b) => b[1]-a[1]).slice(0, 12);
+  const maxAct = Math.max(1, ...sortedActs.map(([,s]) => s));
+
+  const catColors = { reading:"#2f5d4f", listening:"#2c4a7a", speaking:"#92400e", writing:"#6b21a8", study:"#9d174d" };
+
+  document.getElementById("activity-chart").innerHTML = sortedActs.length === 0
+    ? '<div class="empty-state">Aún no hay datos. ¡Empieza a registrar actividades!</div>'
+    : sortedActs.map(([act, sec]) => {
+        const meta = ACTIVITY_META[act] || { label: act, cat: "reading" };
+        const pct = Math.round((sec/maxAct)*100);
+        const color = catColors[meta.cat] || "#2f5d4f";
+        return `<div class="bar-row">
+          <div class="bar-label">${meta.label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div class="bar-val">${formatHM(sec)}</div>
+        </div>`;
+      }).join("");
+}
+
+/* ═══════════════════════════════════════════════════════
+   YOUTUBE
+═══════════════════════════════════════════════════════ */
+
+async function fetchVideoDetails(videoIds) {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("NO_API_KEY");
+  const results = [];
+  for (let i = 0; i < videoIds.length; i += 50) {
+    const batch = videoIds.slice(i, i+50);
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${batch.join(",")}&key=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error?.errors?.[0]?.reason || "ERROR");
+    for (const item of data.items||[]) {
+      results.push({ id: item.id, title: item.snippet?.title || item.id, seconds: parseISODuration(item.contentDetails.duration) });
+    }
+  }
+  return results;
+}
+
+document.getElementById("yt-add").addEventListener("click", async () => {
+  const input = document.getElementById("yt-input");
+  const statusEl = document.getElementById("yt-status");
+  const raw = input.value.trim();
+  if (!raw) return;
+  if (!getApiKey()) { setStatus(statusEl, "Falta la API key de YouTube.", "err"); return; }
+
+  const links = splitMultipleLinks(raw);
+  const videoIds = links.map(l => extractVideoId(l)).filter(Boolean);
+  if (videoIds.length === 0) { setStatus(statusEl, "No se reconoció ningún enlace válido.", "err"); return; }
+
+  setStatus(statusEl, `Calculando duración de ${videoIds.length} vídeo(s)...`, "pending");
+
+  try {
+    const details = await fetchVideoDetails(videoIds);
+    const lang = document.getElementById("yt-lang-select").value;
+    const activity = document.getElementById("yt-activity").value;
+
+    details.forEach(v => {
+      state.entries.push({ lang, activity, note: v.title, seconds: v.seconds, date: todayStr(), id: Date.now() + Math.random(), ytId: v.id });
+    });
+    saveState();
+    renderYoutubeList();
+    setStatus(statusEl, `Añadido${details.length > 1 ? "s" : ""} ${details.length} vídeo(s).`, "ok");
+    input.value = "";
+  } catch(err) {
+    const msgs = { NO_API_KEY: "Falta la API key.", keyInvalid: "API key no válida.", quotaExceeded: "Cuota diaria agotada." };
+    setStatus(statusEl, msgs[err.message] || `Error: ${err.message}`, "err");
+  }
+});
+
+document.getElementById("yt-input").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("yt-add").click(); });
+
+function renderYoutubeList() {
+  const list = document.getElementById("yt-list");
+  const ytEntries = state.entries.filter(e => e.ytId);
+  if (ytEntries.length === 0) {
+    list.innerHTML = '<div class="empty-state">Todavía no has añadido ningún vídeo.</div>';
+    return;
+  }
+  list.innerHTML = "";
+  [...ytEntries].reverse().slice(0,20).forEach(entry => {
+    const div = document.createElement("div");
+    div.className = "entry";
+    div.innerHTML = `
+      <div class="entry-main">
+        <span class="entry-title">${entry.note}</span>
+        <span class="entry-sub">${entry.lang} · ${entry.ytId}</span>
+      </div>
+      <div class="entry-right">
+        <span class="entry-duration">${formatHMS(entry.seconds)}</span>
+        <button class="danger-link" onclick="deleteEntry(${entry.id})">×</button>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   TMDB
+═══════════════════════════════════════════════════════ */
+
+function tmdbFetch(path) {
+  const key = getTmdbKey();
+  if (!key) return Promise.reject(new Error("NO_TMDB_KEY"));
+  const isBearerToken = key.length > 100 || key.startsWith("eyJ");
+  if (isBearerToken) {
+    return fetch(`https://api.themoviedb.org/3${path}`, { headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" } });
+  } else {
+    const sep = path.includes("?") ? "&" : "?";
+    return fetch(`https://api.themoviedb.org/3${path}${sep}api_key=${key}`);
+  }
+}
+
+async function searchTmdbShows(query) {
+  const res = await tmdbFetch(`/search/tv?query=${encodeURIComponent(query)}&include_adult=false`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.status_message || `HTTP ${res.status}`);
+  return (data.results || []).slice(0, 6);
+}
+
+async function getTmdbShowDetails(tvId) {
+  const res = await tmdbFetch(`/tv/${tvId}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.status_message || `HTTP ${res.status}`);
+  return data;
+}
+
+async function searchTmdbMovies(query) {
+  const res = await tmdbFetch(`/search/movie?query=${encodeURIComponent(query)}&include_adult=false`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.status_message || `HTTP ${res.status}`);
+  return (data.results || []).slice(0, 6);
+}
+
+async function getTmdbMovieDetails(movieId) {
+  const res = await tmdbFetch(`/movie/${movieId}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.status_message || `HTTP ${res.status}`);
+  return data;
+}
+
+/* ── Shows ── */
+
+document.getElementById("show-search-btn").addEventListener("click", async () => {
+  const query = document.getElementById("show-search").value.trim();
+  const statusEl = document.getElementById("show-status");
+  document.getElementById("show-results").innerHTML = "";
+  if (!query) return;
+  if (!getTmdbKey()) { setStatus(statusEl, "Falta la API key de TMDB.", "err"); return; }
+  setStatus(statusEl, `Buscando "${query}"...`, "pending");
+  try {
+    const results = await searchTmdbShows(query);
+    if (!results.length) { setStatus(statusEl, "No se encontraron resultados.", "err"); return; }
+    setStatus(statusEl, `${results.length} resultado(s):`, "ok");
+    renderShowResults(results);
+  } catch(err) {
+    setStatus(statusEl, err.message === "NO_TMDB_KEY" ? "Falta la API key de TMDB." : `Error: ${err.message}`, "err");
+  }
+});
+
+document.getElementById("show-search").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("show-search-btn").click(); });
+
+function renderShowResults(results) {
+  const el = document.getElementById("show-results");
+  el.innerHTML = "";
+  results.forEach(r => {
+    const div = document.createElement("div");
+    div.className = "result-entry";
+    div.innerHTML = `
+      <div class="result-main">
+        <span class="result-title">${r.name}${r.original_name && r.original_name !== r.name ? ` (${r.original_name})` : ""}</span>
+        <span class="result-sub">${r.first_air_date ? r.first_air_date.slice(0,4) : "sin fecha"}</span>
+      </div>`;
+    const btn = document.createElement("button");
+    btn.textContent = "Añadir";
+    btn.onclick = () => addShowFromTmdb(r);
+    div.appendChild(btn);
+    el.appendChild(div);
+  });
+}
+
+async function addShowFromTmdb(result) {
+  const statusEl = document.getElementById("show-status");
+  setStatus(statusEl, `Obteniendo datos de "${result.name}"...`, "pending");
+  try {
+    const details = await getTmdbShowDetails(result.id);
+    const runtimes = details.episode_run_time || [];
+    let epDuration = runtimes.length > 0 ? Math.round(runtimes.reduce((a,b) => a+b, 0) / runtimes.length) : 24;
+    const lang = document.getElementById("shows-lang-select").value;
+    const activity = document.getElementById("shows-activity").value;
+    state.shows.push({ name: details.name, epDuration, episodesWatched: 0, tmdbId: details.id, lang, activity });
+    saveState();
+    renderShows();
+    document.getElementById("show-search").value = "";
+    document.getElementById("show-results").innerHTML = "";
+    setStatus(statusEl, `"${details.name}" añadido (${epDuration} min/episodio).`, "ok");
+  } catch(err) {
+    setStatus(statusEl, `Error: ${err.message}`, "err");
+  }
+}
+
+function renderShows() {
+  const list = document.getElementById("show-list");
+  if (state.shows.length === 0) {
+    list.innerHTML = '<div class="empty-state">Todavía no has añadido ninguna serie.</div>';
+    return;
+  }
+  list.innerHTML = "";
+  state.shows.forEach((show, i) => {
+    const card = document.createElement("div");
+    card.className = "show-card";
+    card.innerHTML = `
+      <div class="show-card-head">
+        <div>
+          <div class="show-name">${show.name}</div>
+          <div class="show-meta">${show.epDuration} min/ep · ${show.lang || ""} · ${ACTIVITY_META[show.activity]?.label || ""}</div>
+        </div>
+        <button class="danger-link" onclick="state.shows.splice(${i},1);saveState();renderShows();">eliminar</button>
+      </div>
+      <div class="show-controls">
+        <label style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);" for="ep-${i}">Episodios vistos</label>
+        <input type="number" id="ep-${i}" class="ep-input" min="0" step="1" value="${show.episodesWatched}" />
+        <span class="show-total" id="ep-total-${i}">${formatHMS(show.epDuration * 60 * show.episodesWatched)}</span>
+      </div>`;
+    list.appendChild(card);
+    document.getElementById(`ep-${i}`).oninput = (e) => {
+      const val = Math.max(0, parseInt(e.target.value,10)||0);
+      state.shows[i].episodesWatched = val;
+      // Update entries: remove old show entry and re-add
+      state.entries = state.entries.filter(en => en.showId !== show.tmdbId);
+      if (val > 0) {
+        state.entries.push({ lang: show.lang, activity: show.activity || "freeflow-listening", note: show.name, seconds: show.epDuration * 60 * val, date: todayStr(), id: Date.now() + Math.random(), showId: show.tmdbId });
+      }
+      saveState();
+      document.getElementById(`ep-total-${i}`).textContent = formatHMS(show.epDuration * 60 * val);
+    };
+  });
+}
+
+/* ── Movies ── */
+
+document.getElementById("movie-search-btn").addEventListener("click", async () => {
+  const query = document.getElementById("movie-search").value.trim();
+  const statusEl = document.getElementById("movie-status");
+  document.getElementById("movie-results").innerHTML = "";
+  if (!query) return;
+  if (!getTmdbKey()) { setStatus(statusEl, "Falta la API key de TMDB.", "err"); return; }
+  setStatus(statusEl, `Buscando "${query}"...`, "pending");
+  try {
+    const results = await searchTmdbMovies(query);
+    if (!results.length) { setStatus(statusEl, "No se encontraron resultados.", "err"); return; }
+    setStatus(statusEl, `${results.length} resultado(s):`, "ok");
+    renderMovieResults(results);
+  } catch(err) {
+    setStatus(statusEl, `Error: ${err.message}`, "err");
+  }
+});
+
+document.getElementById("movie-search").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("movie-search-btn").click(); });
+
+function renderMovieResults(results) {
+  const el = document.getElementById("movie-results");
+  el.innerHTML = "";
+  results.forEach(r => {
+    const div = document.createElement("div");
+    div.className = "result-entry";
+    div.innerHTML = `
+      <div class="result-main">
+        <span class="result-title">${r.title}${r.original_title && r.original_title !== r.title ? ` (${r.original_title})` : ""}</span>
+        <span class="result-sub">${r.release_date ? r.release_date.slice(0,4) : ""}</span>
+      </div>`;
+    const btn = document.createElement("button");
+    btn.textContent = "Añadir";
+    btn.onclick = () => addMovieFromTmdb(r);
+    div.appendChild(btn);
+    el.appendChild(div);
+  });
+}
+
+async function addMovieFromTmdb(result) {
+  const statusEl = document.getElementById("movie-status");
+  setStatus(statusEl, `Obteniendo datos de "${result.title}"...`, "pending");
+  try {
+    const details = await getTmdbMovieDetails(result.id);
+    const runtime = details.runtime || 0;
+    if (runtime <= 0) { setStatus(statusEl, `TMDB no tiene la duración de "${result.title}".`, "err"); return; }
+    const lang = document.getElementById("movies-lang-select").value;
+    const activity = document.getElementById("movies-activity").value;
+    state.entries.push({ lang, activity, note: details.title, seconds: runtime * 60, date: todayStr(), id: Date.now() + Math.random(), movieId: details.id });
+    saveState();
+    renderMovieList();
+    document.getElementById("movie-search").value = "";
+    document.getElementById("movie-results").innerHTML = "";
+    setStatus(statusEl, `"${details.title}" añadida (${formatHMS(runtime*60)}).`, "ok");
+  } catch(err) {
+    setStatus(statusEl, `Error: ${err.message}`, "err");
+  }
+}
+
+function renderMovieList() {
+  const list = document.getElementById("movie-list");
+  const movies = state.entries.filter(e => e.movieId);
+  if (movies.length === 0) {
+    list.innerHTML = '<div class="empty-state">Todavía no has añadido ninguna película.</div>';
+    return;
+  }
+  list.innerHTML = "";
+  [...movies].reverse().forEach(entry => {
+    const div = document.createElement("div");
+    div.className = "entry";
+    div.innerHTML = `
+      <div class="entry-main">
+        <span class="entry-title">${entry.note}</span>
+        <span class="entry-sub">${entry.lang} · ${entry.date}</span>
+      </div>
+      <div class="entry-right">
+        <span class="entry-duration">${formatHMS(entry.seconds)}</span>
+        <button class="danger-link" onclick="deleteEntry(${entry.id})">×</button>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   API KEY UI
+═══════════════════════════════════════════════════════ */
+
+function refreshApiKeyUI() {
+  const k = getApiKey();
+  const el = document.getElementById("api-key-input");
+  const s = document.getElementById("api-status");
+  if (k) { el.value = k; s.textContent = "Clave guardada."; s.className = "api-status show ok"; }
+  else { s.textContent = ""; s.className = "api-status"; }
+}
+
+function refreshTmdbKeyUI() {
+  const k = getTmdbKey();
+  const el = document.getElementById("tmdb-key-input");
+  const s = document.getElementById("tmdb-status");
+  if (k) { el.value = k; s.textContent = "Clave guardada."; s.className = "api-status show ok"; }
+  else { s.textContent = ""; s.className = "api-status"; }
+}
+
+document.getElementById("api-key-save").addEventListener("click", () => {
+  const k = document.getElementById("api-key-input").value.trim();
+  const s = document.getElementById("api-status");
+  if (!k) { s.textContent = "Pega una clave primero."; s.className = "api-status show err"; return; }
+  setApiKey(k); s.textContent = "Guardada."; s.className = "api-status show ok";
+});
+document.getElementById("api-key-clear").addEventListener("click", () => {
+  setApiKey(""); document.getElementById("api-key-input").value = "";
+  const s = document.getElementById("api-status"); s.textContent = "Eliminada."; s.className = "api-status show ok";
+});
+document.getElementById("tmdb-key-save").addEventListener("click", () => {
+  const k = document.getElementById("tmdb-key-input").value.trim();
+  const s = document.getElementById("tmdb-status");
+  if (!k) { s.textContent = "Pega una clave primero."; s.className = "api-status show err"; return; }
+  setTmdbKey(k); s.textContent = "Guardada."; s.className = "api-status show ok";
+});
+document.getElementById("tmdb-key-clear").addEventListener("click", () => {
+  setTmdbKey(""); document.getElementById("tmdb-key-input").value = "";
+  const s = document.getElementById("tmdb-status"); s.textContent = "Eliminada."; s.className = "api-status show ok";
+});
+
+document.getElementById("reset-all").addEventListener("click", () => {
+  if (!confirm("¿Borrar todos los datos? Esta acción no se puede deshacer.")) return;
+  state = { languages: ["Japonés"], entries: [], shows: [], movies: [] };
+  saveState();
+  renderAll();
+});
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+
+function renderAll() {
+  renderAllLangSelects();
+  renderLangManagement();
+  renderDashboard();
+  renderLogHistory();
+  renderYoutubeList();
+  renderShows();
+  renderMovieList();
+}
+
+// Set today's date on date inputs
+document.getElementById("log-date").value = todayStr();
+document.getElementById("log-date-timer").value = todayStr();
+
+// Close modal on overlay click
+document.getElementById("lang-modal").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeAddLangModal();
+});
+
+// Enter to confirm modal
+document.getElementById("new-lang-name").addEventListener("keydown", e => { if (e.key === "Enter") addLanguage(); });
+
+// Enter shortcuts
+document.getElementById("log-duration").addEventListener("keydown", e => { if (e.key === "Enter") logActivity(); });
+
+refreshApiKeyUI();
+refreshTmdbKeyUI();
+renderAll();
+</script>
+</body>
+</html>
