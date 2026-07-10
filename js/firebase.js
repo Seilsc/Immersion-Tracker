@@ -15,10 +15,22 @@ let fbUser = null;
 function initFirebase() {
   if (window.firebase && !firebase.apps.length) {
     firebase.initializeApp(FIREBASE_CONFIG);
-    firebase.auth().onAuthStateChanged(user => {
+    firebase.auth().onAuthStateChanged(async user => {
       fbUser = user;
       updateProfileUI();
-      if (user) loadCloudState();
+      if (user) {
+        var doc = await firebase.firestore().collection("users").doc(user.uid).get();
+        if (!doc.exists) {
+          var code = generateFriendCode();
+          await firebase.firestore().collection("users").doc(user.uid).set({
+            email: user.email,
+            displayName: user.displayName || user.email.split("@")[0],
+            friendCode: code,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+        loadCloudState();
+      }
     });
   }
 }
@@ -92,6 +104,12 @@ async function fbSignIn(email, password) {
 
 async function fbSignOut() {
   await firebase.auth().signOut();
+}
+
+async function fbSignInWithGoogle() {
+  var provider = new firebase.auth.GoogleAuthProvider();
+  var result = await firebase.auth().signInWithPopup(provider);
+  return result;
 }
 
 function generateFriendCode() {
@@ -328,6 +346,12 @@ saveState = function() {
     var pass = document.getElementById("prof-pass").value;
     if (!email || !pass) { setStatus(document.getElementById("prof-status"), "Introduce email y contraseña", "err"); return; }
     try { await fbSignIn(email, pass); setStatus(document.getElementById("prof-status"), "✓ Sesión iniciada", "ok"); closeProfileDropdown(); }
+    catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
+  });
+
+  var googleBtn = document.getElementById("prof-google-btn");
+  if (googleBtn) googleBtn.addEventListener("click", async function() {
+    try { await fbSignInWithGoogle(); closeProfileDropdown(); }
     catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
   });
 
