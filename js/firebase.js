@@ -107,16 +107,26 @@ async function fbSignOut() {
 }
 
 function fbSignInWithGoogle() {
-  var provider = new firebase.auth.GoogleAuthProvider();
-  firebase.auth().signInWithPopup(provider).then(function(result) {
-    if (result && result.user) closeProfileDropdown();
-  }).catch(function(e) {
-    if (e.code === "auth/popup-blocked") {
-      firebase.auth().signInWithRedirect(provider);
-    } else {
-      setStatus(document.getElementById("prof-status"), e.message, "err");
+  if (!google || !google.accounts) {
+    setStatus(document.getElementById("prof-status"), "Google Identity Services no cargó", "err");
+    return;
+  }
+  google.accounts.oauth2.initTokenClient({
+    client_id: "229132583023-ppfi9lfn34n43v45t61binr9lb07date.apps.googleusercontent.com",
+    scope: "openid email profile",
+    callback: function(response) {
+      if (response.access_token) {
+        var credential = firebase.auth.GoogleAuthProvider.credential(null, response.access_token);
+        firebase.auth().signInWithCredential(credential).then(function(result) {
+          if (result && result.user) closeProfileDropdown();
+        }).catch(function(e) {
+          setStatus(document.getElementById("prof-status"), e.message, "err");
+        });
+      } else {
+        setStatus(document.getElementById("prof-status"), response.error || "Error desconocido", "err");
+      }
     }
-  });
+  }).requestAccessToken();
 }
 
 function generateFriendCode() {
