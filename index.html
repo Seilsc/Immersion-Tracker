@@ -872,6 +872,19 @@
 
 <div id="profile-backdrop" style="display:none;position:fixed;inset:0;z-index:1099;background:transparent;"></div>
 
+<!-- CONFLICT DIALOG -->
+<div id="conflict-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
+  <div id="conflict-dialog" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;max-width:400px;width:90%;box-shadow:0 16px 64px rgba(0,0,0,0.2);">
+    <p style="margin:0 0 0.5rem;font-weight:600;">Conflicto de datos</p>
+    <p style="margin:0 0 1rem;font-size:13px;color:var(--ink-soft);">Tienes datos en local y en la nube. ¿Cuáles quieres conservar?</p>
+    <div id="conflict-info" style="display:flex;gap:0.75rem;margin-bottom:1rem;font-size:13px;"></div>
+    <div style="display:flex;gap:0.5rem;">
+      <button id="conflict-local-btn" style="flex:1;">Conservar local</button>
+      <button id="conflict-cloud-btn" style="flex:1;">Conservar nube</button>
+    </div>
+  </div>
+</div>
+
 <button id="theme-toggle" title="Cambiar tema" aria-label="Cambiar entre modo claro y oscuro">
   <!-- icon swapped by JS -->
   <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

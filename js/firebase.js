@@ -30,6 +30,9 @@ function initFirebase() {
           });
         }
         loadCloudState();
+        startAutoSave();
+      } else {
+        stopAutoSave();
       }
     });
   }
@@ -137,6 +140,19 @@ async function saveCloudState() {
   } catch (e) { console.warn("Cloud save failed", e); }
 }
 
+function showConflictDialog(localCount, cloudCount, cloudData, resolve) {
+  var overlay = document.getElementById("conflict-overlay");
+  var info = document.getElementById("conflict-info");
+  var localBtn = document.getElementById("conflict-local-btn");
+  var cloudBtn = document.getElementById("conflict-cloud-btn");
+  if (!overlay || !info || !localBtn || !cloudBtn) { resolve("cloud"); return; }
+  info.innerHTML = '<div style="flex:1;padding:0.5rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:18px;">' + localCount + '</div><div style="color:var(--ink-soft);font-size:11px;">sesiones local</div></div><div style="flex:1;padding:0.5rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:18px;">' + cloudCount + '</div><div style="color:var(--ink-soft);font-size:11px;">sesiones nube</div></div>';
+  overlay.style.display = "flex";
+  function cleanup(choice) { overlay.style.display = "none"; localBtn.onclick = null; cloudBtn.onclick = null; resolve(choice); }
+  localBtn.onclick = function() { cleanup("local"); };
+  cloudBtn.onclick = function() { cleanup("cloud"); };
+}
+
 async function loadCloudState() {
   if (!fbUser) return;
   try {
@@ -145,7 +161,18 @@ async function loadCloudState() {
       var data = doc.data();
       var localLen = state.sessions.length;
       var cloudLen = (data.state && data.state.sessions) ? data.state.sessions.length : 0;
-      if (cloudLen > 0 && cloudLen >= localLen) {
+      if (cloudLen > 0 && localLen > 0 && cloudLen !== localLen) {
+        var choice = await new Promise(function(resolve) { showConflictDialog(localLen, cloudLen, data, resolve); });
+        if (choice === "cloud") {
+          Object.assign(state, data.state);
+          if (data.displayPrefs) Object.entries(data.displayPrefs).forEach(function(e) { var k = DISPLAY_PREFS[e[0]] && DISPLAY_PREFS[e[0]].key; if (k) localStorage.setItem(k, e[1]); });
+          if (data.apiKeyYoutube) setApiKey(data.apiKeyYoutube);
+          if (data.apiKeyTmdb) setTmdbKey(data.apiKeyTmdb);
+          applyDisplayPrefs(); refreshApiKeyUI(); refreshTmdbKeyUI();
+        } else {
+          saveCloudState();
+        }
+      } else if (cloudLen > 0 && cloudLen >= localLen) {
         Object.assign(state, data.state);
         if (data.displayPrefs) Object.entries(data.displayPrefs).forEach(function(e) { var k = DISPLAY_PREFS[e[0]] && DISPLAY_PREFS[e[0]].key; if (k) localStorage.setItem(k, e[1]); });
         if (data.apiKeyYoutube) setApiKey(data.apiKeyYoutube);
@@ -161,6 +188,19 @@ async function loadCloudState() {
       saveCloudState();
     }
   } catch (e) { console.warn("Cloud load failed", e); }
+}
+
+var autoSaveTimer = null;
+
+function startAutoSave() {
+  stopAutoSave();
+  autoSaveTimer = setInterval(function() {
+    if (fbUser) saveCloudState();
+  }, 120000);
+}
+
+function stopAutoSave() {
+  if (autoSaveTimer) { clearInterval(autoSaveTimer); autoSaveTimer = null; }
 }
 
 function getDisplayPrefs() {
