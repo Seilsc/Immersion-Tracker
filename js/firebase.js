@@ -31,8 +31,10 @@ function initFirebase() {
         }
         loadCloudState();
         startAutoSave();
+        startRealTimeSync();
       } else {
         stopAutoSave();
+        stopRealTimeSync();
       }
     });
   }
@@ -106,7 +108,24 @@ async function fbSignIn(email, password) {
 }
 
 async function fbSignOut() {
+  stopAutoSave();
   await firebase.auth().signOut();
+}
+
+async function fbUpdateDisplayName(newName) {
+  await fbUser.updateProfile({ displayName: newName });
+  await firebase.firestore().collection("users").doc(fbUser.uid).update({ displayName: newName });
+  updateProfileUI();
+}
+
+async function fbResetPassword() {
+  await firebase.auth().sendPasswordResetEmail(fbUser.email);
+}
+
+async function fbDeleteAccount() {
+  if (!confirm("¿Eliminar cuenta y todos los datos? Esta acción no se puede deshacer.")) return;
+  await firebase.firestore().collection("users").doc(fbUser.uid).delete();
+  await fbUser.delete();
 }
 
 function fbSignInWithGoogle() {
@@ -207,6 +226,7 @@ async function loadCloudState() {
 }
 
 var autoSaveTimer = null;
+var snapshotUnsub = null;
 
 function startAutoSave() {
   stopAutoSave();
@@ -217,6 +237,46 @@ function startAutoSave() {
 
 function stopAutoSave() {
   if (autoSaveTimer) { clearInterval(autoSaveTimer); autoSaveTimer = null; }
+}
+
+function startRealTimeSync() {
+  stopRealTimeSync();
+  if (!fbUser) return;
+  snapshotUnsub = firebase.firestore().collection("users").doc(fbUser.uid).collection("data").doc("state").onSnapshot(function(doc) {
+    if (doc.exists && fbUser) {
+      var data = doc.data();
+      if (data.state && data.state.sessions) {
+        state = JSON.parse(JSON.stringify(data.state));
+        if (data.displayPrefs) Object.entries(data.displayPrefs).forEach(function(e) { var k = DISPLAY_PREFS[e[0]] && DISPLAY_PREFS[e[0]].key; if (k) localStorage.setItem(k, e[1]); });
+        if (data.apiKeyYoutube) setApiKey(data.apiKeyYoutube);
+        if (data.apiKeyTmdb) setTmdbKey(data.apiKeyTmdb);
+        applyDisplayPrefs(); refreshApiKeyUI(); refreshTmdbKeyUI();
+        renderAll();
+        if (document.getElementById("page-stats") && document.getElementById("page-stats").classList.contains("active")) renderStats();
+        if (document.getElementById("page-historial") && document.getElementById("page-historial").classList.contains("active")) renderHistory();
+      }
+    }
+  });
+}
+
+function stopRealTimeSync() {
+  if (snapshotUnsub) { snapshotUnsub(); snapshotUnsub = null; }
+}
+
+function getPersonalStats() {
+  var totalSessions = state.sessions.length;
+  var totalMinutes = 0;
+  var langCount = {};
+  state.sessions.forEach(function(s) {
+    totalMinutes += s.minutes || 0;
+    var lang = s.language || "otro";
+    if (!langCount[lang]) langCount[lang] = 0;
+    langCount[lang] += s.minutes || 0;
+  });
+  (state.youtube || []).forEach(function(v) { var m = (v.duration || 0) / 60; totalMinutes += m; });
+  (state.shows || []).forEach(function(sh) { var m = (sh.totalEp || 0) * (sh.epDuration || 0) / 60; totalMinutes += m; });
+  (state.movies || []).forEach(function(mo) { var m = (mo.duration || 0) / 60; totalMinutes += m; });
+  return { totalSessions: totalSessions, totalMinutes: Math.round(totalMinutes), langCount: langCount };
 }
 
 function getDisplayPrefs() {
@@ -296,6 +356,8 @@ function updateProfileUI() {
     var avatarBig = document.getElementById("prof-user-avatar");
     var codeEl = document.getElementById("prof-friend-code");
 
+    var ql = document.getElementById("quick-logout");
+    if (ql) ql.style.display = "block";
     if (avatar) avatar.style.display = "none";
     if (img) {
       img.style.display = "block";
@@ -318,7 +380,18 @@ function updateProfileUI() {
     }
     getMyFriendCode().then(function(c) { if (codeEl) codeEl.textContent = c || "---"; });
     loadFriendsList();
+
+    var statsEl = document.getElementById("prof-stats");
+    if (statsEl) {
+      var s = getPersonalStats();
+      statsEl.innerHTML = '<div style="display:flex;gap:0.75rem;margin-bottom:0.75rem;">' +
+        '<div style="flex:1;padding:0.4rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:16px;">' + s.totalSessions + '</div><div style="color:var(--ink-soft);font-size:10px;">sesiones</div></div>' +
+        '<div style="flex:1;padding:0.4rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:16px;">' + Math.floor(s.totalMinutes / 60) + 'h ' + s.totalMinutes % 60 + 'm</div><div style="color:var(--ink-soft);font-size:10px;">totales</div></div>' +
+        '<div style="flex:1;padding:0.4rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:16px;">' + Object.keys(s.langCount).length + '</div><div style="color:var(--ink-soft);font-size:10px;">idiomas</div></div></div>';
+    }
   } else {
+    var ql = document.getElementById("quick-logout");
+    if (ql) ql.style.display = "none";
     if (avatar) avatar.style.display = "flex";
     if (img) { img.style.display = "none"; img.src = ""; }
     if (loggedOut) loggedOut.style.display = "block";
@@ -334,12 +407,13 @@ async function loadFriendsList() {
     el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">Aún no tienes amigos. Comparte tu código.</p>';
     return;
   }
-  el.innerHTML = friends.map(function(f) {
+  el.innerHTML = friends.map(function(f, i) {
     var hours = Math.floor(f.totalMinutes / 60);
     var mins = f.totalMinutes % 60;
-    return '<div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--line);font-size:13px;">' +
-      '<span>' + f.displayName + '</span>' +
-      '<span style="font-family:var(--mono);color:var(--ink-soft);">' + hours + 'h ' + mins + 'm</span></div>';
+    return '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0;border-bottom:1px solid var(--line);font-size:13px;">' +
+      '<span style="width:18px;font-size:11px;color:var(--ink-soft);text-align:center;">' + (i + 1) + '</span>' +
+      '<span style="flex:1;">' + f.displayName + '</span>' +
+      '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;">' + hours + 'h ' + mins + 'm</span></div>';
   }).join("");
 }
 
@@ -411,6 +485,46 @@ saveState = function() {
   var googleBtn = document.getElementById("prof-google-btn");
   if (googleBtn) googleBtn.addEventListener("click", function() {
     fbSignInWithGoogle();
+  });
+
+  var quickLogout = document.getElementById("quick-logout");
+  if (quickLogout) quickLogout.addEventListener("click", async function() {
+    await fbSignOut();
+    closeProfileDropdown();
+  });
+
+  var editNameBtn = document.getElementById("prof-edit-name-btn");
+  if (editNameBtn) editNameBtn.addEventListener("click", function() {
+    var input = document.getElementById("prof-edit-name-input");
+    var status = document.getElementById("prof-status");
+    if (!input) return;
+    if (input.style.display === "none" || !input.style.display || input.style.display === "") {
+      input.style.display = "block"; input.value = fbUser.displayName || ""; input.focus(); return;
+    }
+    var name = input.value.trim();
+    if (!name) { input.style.display = "none"; return; }
+    fbUpdateDisplayName(name).then(function() {
+      if (status) setStatus(status, "✓ Nombre actualizado", "ok");
+      input.style.display = "none";
+    }).catch(function(e) {
+      if (status) setStatus(status, e.message, "err");
+    });
+  });
+
+  var resetPassBtn = document.getElementById("prof-reset-pass-btn");
+  if (resetPassBtn) resetPassBtn.addEventListener("click", async function() {
+    try {
+      await fbResetPassword();
+      setStatus(document.getElementById("prof-status"), "✓ Email de recuperación enviado", "ok");
+    } catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
+  });
+
+  var deleteAccountBtn = document.getElementById("prof-delete-btn");
+  if (deleteAccountBtn) deleteAccountBtn.addEventListener("click", async function() {
+    try {
+      await fbDeleteAccount();
+      closeProfileDropdown();
+    } catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
   });
 
   var logoutBtn = document.getElementById("prof-logout-btn");

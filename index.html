@@ -825,6 +825,7 @@
   <span id="profile-avatar"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
   <img id="profile-img" src="" alt="" style="display:none;width:100%;height:100%;border-radius:50%;object-fit:cover;" />
 </button>
+<button id="quick-logout" title="Cerrar sesión" style="display:none;position:fixed;top:calc(1rem + 40px);left:1rem;z-index:499;background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:10px;padding:2px 4px;text-decoration:underline;">salir</button>
 
 <div id="profile-dropdown">
   <div id="profile-dropdown-body">
@@ -847,25 +848,35 @@
     </div>
     <!-- LOGGED IN -->
     <div id="prof-logged-in" style="display:none;">
-      <div id="prof-user-card" style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1rem;">
+      <div id="prof-user-card" style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.5rem;">
         <div id="prof-user-avatar" style="width:48px;height:48px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:20px;flex-shrink:0;overflow:hidden;"></div>
-        <div>
-          <div id="prof-user-name" style="font-weight:600;"></div>
+        <div style="flex:1;">
+          <div id="prof-user-name" style="font-weight:600;display:inline;"></div>
+          <button id="prof-edit-name-btn" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:11px;padding:0;margin-left:4px;text-decoration:underline;">editar</button>
+          <input id="prof-edit-name-input" type="text" style="display:none;width:100%;margin-top:4px;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:13px;" placeholder="Nuevo nombre" />
           <div id="prof-user-email" style="font-size:12px;color:var(--ink-soft);"></div>
         </div>
       </div>
-      <div style="font-size:13px;color:var(--ink-soft);margin-bottom:0.8rem;">
+
+      <div id="prof-stats"></div>
+
+      <button id="prof-reset-pass-btn" style="font-size:12px;background:none;border:none;cursor:pointer;color:var(--accent);padding:0;margin-bottom:0.5rem;text-decoration:underline;">Cambiar contraseña</button>
+
+      <div style="font-size:13px;color:var(--ink-soft);margin-bottom:0.3rem;">
         Tu código: <code id="prof-friend-code" style="font-size:14px;font-weight:600;color:var(--accent);"></code>
         <button id="prof-copy-code" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:12px;padding:0;margin-left:4px;text-decoration:underline;">copiar</button>
       </div>
-      <div style="display:flex;gap:0.4rem;margin-bottom:0.8rem;">
+      <div style="display:flex;gap:0.4rem;margin-bottom:0.3rem;">
         <input type="text" id="prof-friend-input" placeholder="Código de amigo" style="flex:1;min-width:0;" />
         <button class="secondary" id="prof-add-friend-btn" style="white-space:nowrap;">Añadir</button>
       </div>
       <p class="status-msg" id="prof-friend-status"></p>
       <div id="prof-friends-list" style="margin-bottom:0.5rem;max-height:180px;overflow-y:auto;"></div>
       <hr style="border:none;border-top:1px solid var(--line);margin:0.5rem 0;" />
-      <button class="danger-link" id="prof-logout-btn">Cerrar sesión</button>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="danger-link" id="prof-logout-btn" style="flex:1;">Cerrar sesión</button>
+        <button id="prof-delete-btn" style="flex:1;background:none;border:1px solid #d32f2f;color:#d32f2f;border-radius:8px;cursor:pointer;font-size:12px;padding:0.4rem;">Eliminar cuenta</button>
+      </div>
     </div>
   </div>
 </div>
