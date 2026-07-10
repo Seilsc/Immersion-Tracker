@@ -294,7 +294,6 @@ saveState = function() {
 /* ---------- INIT ---------- */
 
 (function() {
-  try {
   initFirebase();
 
   var profileBtn = document.getElementById("profile-btn");
@@ -355,15 +354,4 @@ saveState = function() {
     }
   });
 
-  var fbTest = document.createElement("div");
-  fbTest.id = "fb-test-ok";
-  fbTest.style.display = "none";
-  document.body.appendChild(fbTest);
-  } catch(e) {
-    var fbErr = document.createElement("div");
-    fbErr.id = "fb-test-err";
-    fbErr.textContent = (e.message || "").substring(0, 80);
-    fbErr.style.display = "none";
-    document.body.appendChild(fbErr);
-  }
 })();
