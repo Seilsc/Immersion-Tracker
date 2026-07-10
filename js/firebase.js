@@ -112,7 +112,7 @@ function fbSignInWithGoogle() {
     return;
   }
   google.accounts.oauth2.initTokenClient({
-    client_id: "229132583023-ppfi9lfn34n43v45t61binr9lb07date.apps.googleusercontent.com",
+    client_id: "191002401447-fvd63pu52kdcfuau69fg401git2ga80l.apps.googleusercontent.com",
     scope: "openid email profile",
     callback: function(response) {
       if (response.access_token) {
