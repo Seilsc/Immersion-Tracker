@@ -106,10 +106,13 @@ async function fbSignOut() {
   await firebase.auth().signOut();
 }
 
-async function fbSignInWithGoogle() {
+function fbSignInWithGoogle() {
   var provider = new firebase.auth.GoogleAuthProvider();
-  var result = await firebase.auth().signInWithPopup(provider);
-  if (result && result.user) closeProfileDropdown();
+  firebase.auth().signInWithPopup(provider).then(function(result) {
+    if (result && result.user) closeProfileDropdown();
+  }).catch(function(e) {
+    setStatus(document.getElementById("prof-status"), e.message, "err");
+  });
 }
 
 function generateFriendCode() {
@@ -350,9 +353,8 @@ saveState = function() {
   });
 
   var googleBtn = document.getElementById("prof-google-btn");
-  if (googleBtn) googleBtn.addEventListener("click", async function() {
-    try { await fbSignInWithGoogle(); }
-    catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
+  if (googleBtn) googleBtn.addEventListener("click", function() {
+    fbSignInWithGoogle();
   });
 
   var logoutBtn = document.getElementById("prof-logout-btn");
