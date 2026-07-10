@@ -355,8 +355,15 @@ saveState = function() {
     }
   });
 
-  document.title = "FBOK";
+  var fbTest = document.createElement("div");
+  fbTest.id = "fb-test-ok";
+  fbTest.style.display = "none";
+  document.body.appendChild(fbTest);
   } catch(e) {
-    document.title = "FBERR:" + (e.message || "").substring(0, 40);
+    var fbErr = document.createElement("div");
+    fbErr.id = "fb-test-err";
+    fbErr.textContent = (e.message || "").substring(0, 80);
+    fbErr.style.display = "none";
+    document.body.appendChild(fbErr);
   }
 })();
