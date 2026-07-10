@@ -293,11 +293,14 @@ saveState = function() {
 
 /* ---------- INIT ---------- */
 
-document.addEventListener("DOMContentLoaded", function() {
+(function() {
   initFirebase();
 
   var profileBtn = document.getElementById("profile-btn");
-  if (profileBtn) profileBtn.addEventListener("click", toggleProfileDropdown);
+  if (profileBtn) profileBtn.addEventListener("click", function(e) {
+    e.stopPropagation();
+    toggleProfileDropdown();
+  });
 
   var backdrop = document.getElementById("profile-backdrop");
   if (backdrop) backdrop.addEventListener("click", closeProfileDropdown);
@@ -306,7 +309,8 @@ document.addEventListener("DOMContentLoaded", function() {
     if (e.key === "Escape") closeProfileDropdown();
   });
 
-  document.getElementById("prof-signup-btn").addEventListener("click", async function() {
+  var signupBtn = document.getElementById("prof-signup-btn");
+  if (signupBtn) signupBtn.addEventListener("click", async function() {
     var email = document.getElementById("prof-email").value.trim();
     var pass = document.getElementById("prof-pass").value;
     var name = document.getElementById("prof-name").value.trim() || email.split("@")[0];
@@ -316,7 +320,8 @@ document.addEventListener("DOMContentLoaded", function() {
     catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
   });
 
-  document.getElementById("prof-login-btn").addEventListener("click", async function() {
+  var loginBtn = document.getElementById("prof-login-btn");
+  if (loginBtn) loginBtn.addEventListener("click", async function() {
     var email = document.getElementById("prof-email").value.trim();
     var pass = document.getElementById("prof-pass").value;
     if (!email || !pass) { setStatus(document.getElementById("prof-status"), "Introduce email y contraseña", "err"); return; }
@@ -324,12 +329,14 @@ document.addEventListener("DOMContentLoaded", function() {
     catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
   });
 
-  document.getElementById("prof-logout-btn").addEventListener("click", async function() {
+  var logoutBtn = document.getElementById("prof-logout-btn");
+  if (logoutBtn) logoutBtn.addEventListener("click", async function() {
     await fbSignOut();
     closeProfileDropdown();
   });
 
-  document.getElementById("prof-add-friend-btn").addEventListener("click", async function() {
+  var addFriendBtn = document.getElementById("prof-add-friend-btn");
+  if (addFriendBtn) addFriendBtn.addEventListener("click", async function() {
     var input = document.getElementById("prof-friend-input");
     var code = input ? input.value.trim() : "";
     if (!code) return;
@@ -337,10 +344,11 @@ document.addEventListener("DOMContentLoaded", function() {
     catch (e) { setStatus(document.getElementById("prof-friend-status"), e.message, "err"); }
   });
 
-  document.getElementById("prof-copy-code").addEventListener("click", function() {
+  var copyBtn = document.getElementById("prof-copy-code");
+  if (copyBtn) copyBtn.addEventListener("click", function() {
     var code = document.getElementById("prof-friend-code");
     if (code && code.textContent) {
-      navigator.clipboard.writeText(code.textContent).catch(function() {});
+      if (navigator.clipboard) navigator.clipboard.writeText(code.textContent).catch(function() {});
     }
   });
-});
+})();
