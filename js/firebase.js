@@ -110,12 +110,28 @@ async function fbSignOut() {
 }
 
 function fbSignInWithGoogle() {
-  var provider = new firebase.auth.GoogleAuthProvider();
-  firebase.auth().signInWithPopup(provider).then(function(result) {
-    if (result && result.user) closeProfileDropdown();
-  }).catch(function(e) {
-    setStatus(document.getElementById("prof-status"), e.message, "err");
+  var statusEl = document.getElementById("prof-status");
+  if (!google || !google.accounts) {
+    setStatus(statusEl, "GIS no cargó", "err"); return;
+  }
+  var client = google.accounts.oauth2.initTokenClient({
+    client_id: "191002401447-fvd63pu52kdcfuau69fg401git2ga80l.apps.googleusercontent.com",
+    scope: "openid email profile",
+    redirect_uri: "postmessage",
+    callback: function(response) {
+      if (response.access_token) {
+        var credential = firebase.auth.GoogleAuthProvider.credential(null, response.access_token);
+        firebase.auth().signInWithCredential(credential).then(function(result) {
+          if (result && result.user) closeProfileDropdown();
+        }).catch(function(e) {
+          setStatus(statusEl, e.message, "err");
+        });
+      } else {
+        setStatus(statusEl, response.error || "Error", "err");
+      }
+    }
   });
+  client.requestAccessToken();
 }
 
 function generateFriendCode() {
