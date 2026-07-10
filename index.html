@@ -1337,6 +1337,36 @@
     </section>
 
     <section class="section">
+      <div class="section-head"><h2>Cuenta en la nube</h2></div>
+      <p class="section-help">Crea una cuenta para guardar tu progreso y competir con amigos.</p>
+      <div id="auth-logged-out">
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.8rem;">
+          <div class="field" style="min-width:180px;"><label>Nombre</label><input type="text" id="auth-name" placeholder="Tu nombre" /></div>
+          <div class="field" style="min-width:180px;"><label>Email</label><input type="email" id="auth-email" placeholder="correo@ejemplo.com" /></div>
+          <div class="field" style="min-width:140px;"><label>Contraseña</label><input type="password" id="auth-pass" placeholder="mín. 6 caracteres" /></div>
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button id="auth-signup-btn">Crear cuenta</button>
+          <button class="secondary" id="auth-login-btn">Iniciar sesión</button>
+        </div>
+        <p class="status-msg" id="auth-status"></p>
+      </div>
+      <div id="auth-logged-in" style="display:none;">
+        <p style="margin:0 0 0.5rem;">Conectado como <strong id="auth-user-info"></strong></p>
+        <p style="margin:0 0 0.8rem;font-size:13px;color:var(--ink-soft);">
+          Tu código de amigo: <code id="auth-friend-code" style="font-size:16px;font-weight:600;color:var(--accent);"></code>
+        </p>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+          <input type="text" id="auth-friend-input" placeholder="Código de amigo" style="max-width:180px;" />
+          <button class="secondary" id="auth-add-friend-btn">Añadir amigo</button>
+        </div>
+        <p class="status-msg" id="auth-friend-status"></p>
+        <div id="friends-list" style="margin-bottom:0.8rem;"></div>
+        <button class="danger-link" id="auth-logout-btn">Cerrar sesión</button>
+      </div>
+    </section>
+
+    <section class="section">
       <div class="section-head"><h2>Copia de seguridad</h2></div>
       <p class="section-help">Exporta todos tus datos para guardarlos o importa una copia anterior.</p>
       <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
@@ -1408,6 +1438,9 @@
   <button id="undo-toast-btn">Deshacer</button>
 </div>
 <svg style="position:absolute;width:0;height:0;" aria-hidden="true"><defs><filter id="confetti-glow"><feGaussianBlur stdDeviation="1.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs></svg>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="js/config.js"></script>
 <script src="js/core.js"></script>
 <script src="js/media.js"></script>
@@ -1415,6 +1448,7 @@
 <script src="js/ui.js"></script>
 <script src="js/pages.js"></script>
 <script src="js/tools.js"></script>
+<script src="js/firebase.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
