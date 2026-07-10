@@ -1,12 +1,13 @@
 /* ---------- FIREBASE ---------- */
 
 const FIREBASE_CONFIG = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.firebasestorage.app",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID"
+  apiKey: "AIzaSyDXhVa7NsVa2oLFJPShzfyzUhDGNQUXC0s",
+  authDomain: "immersion-tracker-languages.firebaseapp.com",
+  projectId: "immersion-tracker-languages",
+  storageBucket: "immersion-tracker-languages.firebasestorage.app",
+  messagingSenderId: "229132583023",
+  appId: "1:229132583023:web:0c6b1a1fb0eb1168f30d9a",
+  measurementId: "G-F1P8JE0KGQ"
 };
 
 let fbUser = null;
