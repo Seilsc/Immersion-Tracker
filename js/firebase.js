@@ -108,20 +108,8 @@ async function fbSignOut() {
 
 async function fbSignInWithGoogle() {
   var provider = new firebase.auth.GoogleAuthProvider();
-  await firebase.auth().signInWithRedirect(provider);
-}
-
-async function handleRedirectResult() {
-  try {
-    var result = await firebase.auth().getRedirectResult();
-    if (result && result.user) {
-      closeProfileDropdown();
-    }
-  } catch (e) {
-    console.warn("Redirect result error:", e);
-    var st = document.getElementById("prof-status");
-    if (st) setStatus(st, e.message, "err");
-  }
+  var result = await firebase.auth().signInWithPopup(provider);
+  if (result && result.user) closeProfileDropdown();
 }
 
 function generateFriendCode() {
@@ -325,7 +313,6 @@ saveState = function() {
 
 (function() {
   initFirebase();
-  handleRedirectResult();
 
   var profileBtn = document.getElementById("profile-btn");
   if (profileBtn) {
@@ -364,13 +351,8 @@ saveState = function() {
 
   var googleBtn = document.getElementById("prof-google-btn");
   if (googleBtn) googleBtn.addEventListener("click", async function() {
-    try {
-      setStatus(document.getElementById("prof-status"), "Redirigiendo a Google…", "ok");
-      await fbSignInWithGoogle();
-    } catch (e) {
-      console.warn("Google sign-in error:", e);
-      setStatus(document.getElementById("prof-status"), e.message, "err");
-    }
+    try { await fbSignInWithGoogle(); }
+    catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
   });
 
   var logoutBtn = document.getElementById("prof-logout-btn");
