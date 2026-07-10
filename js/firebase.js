@@ -294,13 +294,16 @@ saveState = function() {
 /* ---------- INIT ---------- */
 
 (function() {
+  try {
   initFirebase();
 
   var profileBtn = document.getElementById("profile-btn");
-  if (profileBtn) profileBtn.addEventListener("click", function(e) {
-    e.stopPropagation();
-    toggleProfileDropdown();
-  });
+  if (profileBtn) {
+    profileBtn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      toggleProfileDropdown();
+    });
+  }
 
   var backdrop = document.getElementById("profile-backdrop");
   if (backdrop) backdrop.addEventListener("click", closeProfileDropdown);
@@ -351,4 +354,9 @@ saveState = function() {
       if (navigator.clipboard) navigator.clipboard.writeText(code.textContent).catch(function() {});
     }
   });
+
+  document.title = "FBOK";
+  } catch(e) {
+    document.title = "FBERR:" + (e.message || "").substring(0, 40);
+  }
 })();
