@@ -111,7 +111,11 @@ function fbSignInWithGoogle() {
   firebase.auth().signInWithPopup(provider).then(function(result) {
     if (result && result.user) closeProfileDropdown();
   }).catch(function(e) {
-    setStatus(document.getElementById("prof-status"), e.message, "err");
+    if (e.code === "auth/popup-blocked") {
+      firebase.auth().signInWithRedirect(provider);
+    } else {
+      setStatus(document.getElementById("prof-status"), e.message, "err");
+    }
   });
 }
 
