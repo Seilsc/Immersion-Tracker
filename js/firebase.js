@@ -758,7 +758,7 @@ async function showRichProfile(friendId, isSelf) {
       }).join("");
     }
   }
-  // daily activity mini heatmap
+  // daily activity mini heatmap (same style as stats page)
   var dailyEl = document.getElementById("fm-daily");
   if (dailyEl) {
     var dayMap = {};
@@ -768,42 +768,73 @@ async function showRichProfile(friendId, isSelf) {
     } else {
       var vals = Object.keys(dayMap).filter(function(k) { return dayMap[k] > 0; }).map(function(k) { return dayMap[k]; });
       var max = vals.length ? Math.max.apply(null, vals) : 1;
-      var WEEKS = 14, CELL = 10, GAP = 2;
+      var WEEKS = 14;
       var today2 = new Date(); today2.setHours(0, 0, 0, 0);
       var dow = (today2.getDay() + 6) % 7;
       var startDate = new Date(today2);
       startDate.setDate(startDate.getDate() - dow - (WEEKS - 1) * 7);
-      var html = '<div style="display:flex;flex-direction:column;gap:' + GAP + 'px;">';
+      dailyEl.innerHTML = "";
       // month labels row
-      html += '<div style="display:flex;padding-left:' + (CELL + GAP) + 'px;gap:' + GAP + 'px;font-size:8px;color:var(--ink-soft);font-family:var(--mono);">';
+      var monthRow = document.createElement("div");
+      monthRow.className = "heatmap-month-row";
+      var spacer = document.createElement("div");
+      spacer.className = "heatmap-month-spacer";
+      spacer.style.cssText = "width:24px;flex-shrink:0;";
+      monthRow.appendChild(spacer);
+      var labelsContainer = document.createElement("div");
+      labelsContainer.style.cssText = "display:flex;flex:1;gap:3px;";
+      monthRow.appendChild(labelsContainer);
+      dailyEl.appendChild(monthRow);
+      // body with day labels + columns
+      var body = document.createElement("div");
+      body.className = "heatmap-body";
+      var dayLabels = document.createElement("div");
+      dayLabels.className = "heatmap-day-labels";
+      ["", "L", "", "X", "", "V", ""].forEach(function(d) {
+        var s = document.createElement("span"); s.textContent = d;
+        dayLabels.appendChild(s);
+      });
+      body.appendChild(dayLabels);
+      var columns = document.createElement("div");
+      columns.className = "heatmap-columns";
+      body.appendChild(columns);
+      dailyEl.appendChild(body);
       var lastMonth = -1;
       for (var w = 0; w < WEEKS; w++) {
-        var ws = new Date(startDate);
-        ws.setDate(ws.getDate() + w * 7);
-        var m = ws.getMonth();
-        html += '<div style="flex:1;text-align:center;">' + (m !== lastMonth ? ws.toLocaleDateString("es", { month: "short" }) : "") + '</div>';
+        var weekStart = new Date(startDate);
+        weekStart.setDate(weekStart.getDate() + w * 7);
+        var m = weekStart.getMonth();
+        var labelEl = document.createElement("div");
+        labelEl.className = "heatmap-month-label";
+        labelEl.style.cssText = "flex:1;";
+        labelEl.textContent = m !== lastMonth ? weekStart.toLocaleDateString("es", { month: "short" }) : "";
         if (m !== lastMonth) lastMonth = m;
-      }
-      html += '</div>';
-      // day rows (Mon–Sun)
-      var dayNames = ["L", "", "X", "", "V", "", ""];
-      for (var row = 0; row < 7; row++) {
-        html += '<div style="display:flex;align-items:center;gap:' + GAP + 'px;">';
-        html += '<div style="width:' + CELL + 'px;font-size:7px;color:var(--ink-soft);text-align:center;font-family:var(--mono);">' + dayNames[row] + '</div>';
-        for (var w2 = 0; w2 < WEEKS; w2++) {
-          var d2 = new Date(startDate);
-          d2.setDate(d2.getDate() + w2 * 7 + row);
-          var secs = dayMap[d2.toDateString()] || 0;
-          var isFuture = d2 > today2;
+        labelsContainer.appendChild(labelEl);
+        var col = document.createElement("div");
+        col.className = "heatmap-col";
+        for (var d = 0; d < 7; d++) {
+          var date = new Date(startDate);
+          date.setDate(date.getDate() + w * 7 + d);
+          var secs = dayMap[date.toDateString()] || 0;
+          var isFuture = date > today2;
           var level = isFuture ? 0 : secs === 0 ? 0 : secs < max * 0.25 ? 1 : secs < max * 0.5 ? 2 : secs < max * 0.75 ? 3 : 4;
-          var extra = isFuture ? ' data-future=""' : "";
-          if (d2.toDateString() === today2.toDateString()) extra += ' data-today=""';
-          html += '<div style="width:' + CELL + 'px;height:' + CELL + 'px;border-radius:2px;border:1px solid transparent;" class="heatmap-cell" data-level="' + level + '"' + extra + '></div>';
+          var cell = document.createElement("div");
+          cell.className = "heatmap-cell";
+          cell.dataset.level = level;
+          if (isFuture) cell.dataset.future = "";
+          if (date.toDateString() === today2.toDateString()) cell.dataset.today = "";
+          col.appendChild(cell);
         }
-        html += '</div>';
+        columns.appendChild(col);
       }
-      html += '</div>';
-      dailyEl.innerHTML = html;
+      // legend
+      var legend = document.createElement("div");
+      legend.className = "hm-legend";
+      legend.style.cssText = "justify-content:flex-end;margin-top:4px;";
+      legend.innerHTML = '<span style="font-size:9px;">Menos</span>' +
+        [0,1,2,3,4].map(function(l) { return '<div class="hm-legend-cell" data-level="' + l + '"></div>'; }).join("") +
+        '<span style="font-size:9px;">M&aacute;s</span>';
+      dailyEl.appendChild(legend);
     }
   }
 
