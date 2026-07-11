@@ -18,7 +18,7 @@ function initFirebase() {
     firebase.initializeApp(FIREBASE_CONFIG);
     firebase.auth().onAuthStateChanged(async user => {
       fbUser = user;
-      updateProfileUI();
+      try { updateProfileUI(); } catch (e) { console.warn("Profile UI error", e); }
       if (user) {
         if (!user.emailVerified) user.reload(); // refresh verification status
         var doc = await firebase.firestore().collection("users").doc(user.uid).get();
@@ -147,7 +147,7 @@ async function fbResetPassword() {
 async function fbDeleteAccount() {
   if (!confirm("Eliminar cuenta y todos los datos? Esta accin no se puede deshacer.")) return;
   // delete avatar if exists
-  try { await firebase.storage().ref("avatars/" + fbUser.uid).delete(); } catch (e) {}
+  if (firebase.storage) { try { await firebase.storage().ref("avatars/" + fbUser.uid).delete(); } catch (e) {} }
   await firebase.firestore().collection("users").doc(fbUser.uid).delete();
   await fbUser.delete();
 }
@@ -566,21 +566,26 @@ function updateProfileUI() {
     }
 
     // try loading custom avatar first
-    if (avatarBig) {
-      var storageRef = firebase.storage().ref("avatars/" + fbUser.uid);
-      storageRef.getDownloadURL().then(function(url) {
+    if (avatarBig && firebase.storage) {
+      firebase.storage().ref("avatars/" + fbUser.uid).getDownloadURL().then(function(url) {
         avatarBig.textContent = "";
         avatarBig.style.backgroundImage = "url(" + url + ")";
         avatarBig.style.backgroundSize = "cover";
       }).catch(function() {
-        var initial = (fbUser.displayName || fbUser.email)[0].toUpperCase();
-        avatarBig.textContent = initial;
-        var gravBig = new Image();
-        gravBig.src = getGravatarUrl(fbUser.email, 96);
-        gravBig.onload = function() {
-          if (gravBig.width > 10) { avatarBig.textContent = ""; avatarBig.style.backgroundImage = "url(" + gravBig.src + ")"; avatarBig.style.backgroundSize = "cover"; }
-        };
+        loadGravatarBig(avatarBig);
       });
+    } else if (avatarBig) {
+      loadGravatarBig(avatarBig);
+    }
+
+    function loadGravatarBig(el) {
+      var initial = (fbUser.displayName || fbUser.email)[0].toUpperCase();
+      el.textContent = initial;
+      var gravBig = new Image();
+      gravBig.src = getGravatarUrl(fbUser.email, 96);
+      gravBig.onload = function() {
+        if (gravBig.width > 10) { el.textContent = ""; el.style.backgroundImage = "url(" + gravBig.src + ")"; el.style.backgroundSize = "cover"; }
+      };
     }
 
     var statsEl = document.getElementById("prof-stats");
@@ -658,6 +663,7 @@ function closeProfileDropdown() {
 
 function handlePhotoUpload(file) {
   if (!fbUser || !file) return;
+  if (!firebase.storage) { setSyncStatus("Storage no disponible"); return; }
   setSyncStatus("Subiendo foto...");
   var ref = firebase.storage().ref("avatars/" + fbUser.uid);
   var task = ref.put(file);
