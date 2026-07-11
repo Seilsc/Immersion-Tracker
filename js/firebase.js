@@ -11,6 +11,7 @@ const FIREBASE_CONFIG = {
 };
 
 let fbUser = null;
+var lastSessionLen = 0;
 
 function initFirebase() {
   if (window.firebase && !firebase.apps.length) {
@@ -19,6 +20,7 @@ function initFirebase() {
       fbUser = user;
       updateProfileUI();
       if (user) {
+        if (!user.emailVerified) user.reload(); // refresh verification status
         var doc = await firebase.firestore().collection("users").doc(user.uid).get();
         if (!doc.exists) {
           var code = generateFriendCode();
@@ -32,12 +34,27 @@ function initFirebase() {
         loadCloudState();
         startAutoSave();
         startRealTimeSync();
+        loadPendingRequests();
       } else {
         stopAutoSave();
         stopRealTimeSync();
       }
     });
   }
+}
+
+/* ---------- SYNC INDICATOR ---------- */
+
+function setSyncStatus(text) {
+  var el = document.getElementById("sync-indicator");
+  if (!el) return;
+  if (text) { el.textContent = text; el.style.display = "block"; }
+  else { el.style.display = "none"; }
+}
+
+function showLoading(id, show) {
+  var el = document.getElementById(id);
+  if (el) el.innerHTML = show ? '<p style="color:var(--ink-soft);font-size:12px;margin:0;">Cargando...</p>' : "";
 }
 
 /* ---------- MD5 (for Gravatar) ---------- */
@@ -59,7 +76,7 @@ function md5(str) {
       [F, 0xf57c0faf, 7], [F, 0x4787c62a, 12], [F, 0xa8304613, 17], [F, 0xfd469501, 22],
       [F, 0x698098d8, 7], [F, 0x8b44f7af, 12], [F, 0xffff5bb1, 17], [F, 0x895cd7be, 22],
       [F, 0x6b901122, 7], [F, 0xfd987193, 12], [F, 0xa679438e, 17], [F, 0x49b40821, 22],
-      [G, 0xf61e2562, 5], [G, 0xc040b340, 9], [G, 0x265e5a51, 14], [G, 0xe9b6c7aa, 20],
+      [G, 0xf61e2562, 5], [G, 0xc040b340, 9], [G, 0x265e51a, 14], [G, 0xe9b6c7aa, 20],
       [G, 0xd62f105d, 5], [G, 0x02441453, 9], [G, 0xd8a1e681, 14], [G, 0xe7d3fbc8, 20],
       [G, 0x21e1cde6, 5], [G, 0xc33707d6, 9], [G, 0xf4d50d87, 14], [G, 0x455a14ed, 20],
       [G, 0xa9e3e905, 5], [G, 0xfcefa3f8, 9], [G, 0x676f02d9, 14], [G, 0x8d2a4c8a, 20],
@@ -100,6 +117,7 @@ async function fbSignUp(email, password, displayName) {
     email: email, displayName: displayName || email.split("@")[0],
     friendCode: code, createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
+  await cred.user.sendEmailVerification();
   return cred;
 }
 
@@ -123,7 +141,9 @@ async function fbResetPassword() {
 }
 
 async function fbDeleteAccount() {
-  if (!confirm("¿Eliminar cuenta y todos los datos? Esta acción no se puede deshacer.")) return;
+  if (!confirm("Eliminar cuenta y todos los datos? Esta accin no se puede deshacer.")) return;
+  // delete avatar if exists
+  try { await firebase.storage().ref("avatars/" + fbUser.uid).delete(); } catch (e) {}
   await firebase.firestore().collection("users").doc(fbUser.uid).delete();
   await fbUser.delete();
 }
@@ -131,7 +151,7 @@ async function fbDeleteAccount() {
 function fbSignInWithGoogle() {
   var statusEl = document.getElementById("prof-status");
   if (!google || !google.accounts) {
-    setStatus(statusEl, "GIS no cargó", "err"); return;
+    setStatus(statusEl, "GIS no carg", "err"); return;
   }
   var client = google.accounts.oauth2.initTokenClient({
     client_id: "191002401447-fvd63pu52kdcfuau69fg401git2ga80l.apps.googleusercontent.com",
@@ -164,6 +184,7 @@ function generateFriendCode() {
 
 async function saveCloudState() {
   if (!fbUser) return;
+  setSyncStatus("Guardando...");
   try {
     await firebase.firestore().collection("users").doc(fbUser.uid).collection("data").doc("state").set({
       state: JSON.parse(JSON.stringify(state)),
@@ -172,7 +193,9 @@ async function saveCloudState() {
       apiKeyTmdb: getTmdbKey() || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-  } catch (e) { console.warn("Cloud save failed", e); }
+    setSyncStatus("Sincronizado");
+    setTimeout(function() { setSyncStatus(""); }, 2000);
+  } catch (e) { console.warn("Cloud save failed", e); setSyncStatus("Error de sync"); }
 }
 
 function showConflictDialog(localCount, cloudCount, cloudData, resolve) {
@@ -216,6 +239,7 @@ async function loadCloudState() {
       } else if (localLen > cloudLen) {
         saveCloudState();
       }
+      lastSessionLen = state.sessions.length;
       renderAll();
       if (document.getElementById("page-stats") && document.getElementById("page-stats").classList.contains("active")) renderStats();
       if (document.getElementById("page-historial") && document.getElementById("page-historial").classList.contains("active")) renderHistory();
@@ -244,9 +268,12 @@ function startRealTimeSync() {
   if (!fbUser) return;
   snapshotUnsub = firebase.firestore().collection("users").doc(fbUser.uid).collection("data").doc("state").onSnapshot(function(doc) {
     if (doc.exists && fbUser) {
+      setSyncStatus("Sincronizado");
+      setTimeout(function() { setSyncStatus(""); }, 2000);
       var data = doc.data();
       if (data.state && data.state.sessions) {
         state = JSON.parse(JSON.stringify(data.state));
+        lastSessionLen = state.sessions.length; // don't re-log cloud-synced sessions
         if (data.displayPrefs) Object.entries(data.displayPrefs).forEach(function(e) { var k = DISPLAY_PREFS[e[0]] && DISPLAY_PREFS[e[0]].key; if (k) localStorage.setItem(k, e[1]); });
         if (data.apiKeyYoutube) setApiKey(data.apiKeyYoutube);
         if (data.apiKeyTmdb) setTmdbKey(data.apiKeyTmdb);
@@ -268,14 +295,14 @@ function getPersonalStats() {
   var totalMinutes = 0;
   var langCount = {};
   state.sessions.forEach(function(s) {
-    totalMinutes += s.minutes || 0;
-    var lang = s.language || "otro";
+    totalMinutes += (s.seconds || 0) / 60;
+    var lang = s.lang || "otro";
     if (!langCount[lang]) langCount[lang] = 0;
-    langCount[lang] += s.minutes || 0;
+    langCount[lang] += (s.seconds || 0) / 60;
   });
-  (state.youtube || []).forEach(function(v) { var m = (v.duration || 0) / 60; totalMinutes += m; });
-  (state.shows || []).forEach(function(sh) { var m = (sh.totalEp || 0) * (sh.epDuration || 0) / 60; totalMinutes += m; });
-  (state.movies || []).forEach(function(mo) { var m = (mo.duration || 0) / 60; totalMinutes += m; });
+  (state.youtube || []).forEach(function(v) { var m = (v.seconds || v.duration || 0) / 60; totalMinutes += m; });
+  (state.shows || []).forEach(function(sh) { var m = (sh.episodesWatched || 0) * (sh.epDuration || 0); totalMinutes += m; });
+  (state.movies || []).forEach(function(mo) { var m = (mo.seconds || mo.duration || 0) / 60; totalMinutes += m; });
   return { totalSessions: totalSessions, totalMinutes: Math.round(totalMinutes), langCount: langCount };
 }
 
@@ -285,23 +312,104 @@ function getDisplayPrefs() {
   return dp;
 }
 
-/* ---------- FRIENDS ---------- */
+/* ---------- ACTIVITY LOG ---------- */
 
-async function addFriendByCode(code) {
-  if (!fbUser) throw new Error("Inicia sesión primero");
+async function logSessionActivity(session) {
+  if (!fbUser) return;
+  try {
+    await firebase.firestore().collection("users").doc(fbUser.uid).collection("activity").add({
+      type: "session",
+      activityName: session.activityName || "",
+      cat: session.cat || "",
+      lang: session.lang || "",
+      note: (session.note || "").slice(0, 100),
+      seconds: session.seconds || 0,
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+      clientTs: session.ts || Date.now()
+    });
+  } catch (e) { console.warn("Activity log failed", e); }
+}
+
+/* ---------- FRIEND REQUESTS ---------- */
+
+async function sendFriendRequest(code) {
+  if (!fbUser) throw new Error("Inicia sesin primero");
   var snap = await firebase.firestore().collection("users").where("friendCode", "==", code.toUpperCase()).get();
-  if (snap.empty) throw new Error("Código inválido");
-  var friendDoc = snap.docs[0];
-  var friendId = friendDoc.id;
-  if (friendId === fbUser.uid) throw new Error("No puedes añadirte a ti mismo");
-  await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").doc(friendId).set({
-    friendCode: code.toUpperCase(), addedAt: firebase.firestore.FieldValue.serverTimestamp()
+  if (snap.empty) throw new Error("Cdigo invlido");
+  var target = snap.docs[0];
+  var targetId = target.id;
+  if (targetId === fbUser.uid) throw new Error("No puedes añadirte a ti mismo");
+  // check if already friends
+  var existing = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").doc(targetId).get();
+  if (existing.exists) throw new Error("Ya sois amigos");
+  // check if request already sent
+  var reqSnap = await firebase.firestore().collection("users").doc(targetId).collection("friendRequests").where("from", "==", fbUser.uid).get();
+  if (!reqSnap.empty) throw new Error("Solicitud ya enviada");
+  await firebase.firestore().collection("users").doc(targetId).collection("friendRequests").add({
+    from: fbUser.uid,
+    fromName: fbUser.displayName || fbUser.email.split("@")[0],
+    fromCode: code.toUpperCase(),
+    status: "pending",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+async function loadPendingRequests() {
+  if (!fbUser) return;
+  var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friendRequests").where("status", "==", "pending").get();
+  var section = document.getElementById("prof-requests-section");
+  var list = document.getElementById("prof-requests-list");
+  if (!section || !list) return;
+  if (snap.empty) { section.style.display = "none"; return; }
+  section.style.display = "block";
+  var html = "";
+  snap.forEach(function(doc) {
+    var d = doc.data();
+    html += '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0;font-size:12px;border-bottom:1px solid var(--line);">' +
+      '<span style="flex:1;">' + (d.fromName || "Alguien") + '</span>' +
+      '<button class="req-accept" data-id="' + doc.id + '" data-from="' + d.from + '" style="font-size:11px;padding:0.2rem 0.5rem;border:none;border-radius:4px;background:var(--green);color:#fff;cursor:pointer;">Aceptar</button>' +
+      '<button class="req-decline" data-id="' + doc.id + '" style="font-size:11px;padding:0.2rem 0.5rem;border:none;border-radius:4px;background:var(--line);color:var(--ink-soft);cursor:pointer;">Rechazar</button></div>';
+  });
+  list.innerHTML = html;
+}
+
+async function acceptFriendRequest(reqId, fromUid) {
+  if (!fbUser) return;
+  // accept: update request status, add bidirectional friendship
+  await firebase.firestore().collection("users").doc(fbUser.uid).collection("friendRequests").doc(reqId).update({ status: "accepted" });
+  // get friend's code
+  var fromUser = await firebase.firestore().collection("users").doc(fromUid).get();
+  var fromCode = fromUser.exists ? fromUser.data().friendCode || "" : "";
+  await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").doc(fromUid).set({
+    friendCode: fromCode, addedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
   var myDoc = await firebase.firestore().collection("users").doc(fbUser.uid).get();
-  await firebase.firestore().collection("users").doc(friendId).collection("friends").doc(fbUser.uid).set({
+  await firebase.firestore().collection("users").doc(fromUid).collection("friends").doc(fbUser.uid).set({
     friendCode: myDoc.exists ? myDoc.data().friendCode || "" : "",
     addedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
+  loadPendingRequests();
+  loadFriendsList();
+}
+
+async function declineFriendRequest(reqId) {
+  if (!fbUser) return;
+  await firebase.firestore().collection("users").doc(fbUser.uid).collection("friendRequests").doc(reqId).delete();
+  loadPendingRequests();
+}
+
+/* ---------- FRIENDS ---------- */
+
+async function addFriendByCode(code) {
+  // now sends a friend request instead of direct add
+  await sendFriendRequest(code);
+}
+
+async function removeFriend(friendId) {
+  if (!fbUser || !confirm("Eliminar amigo?")) return;
+  await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").doc(friendId).delete();
+  await firebase.firestore().collection("users").doc(friendId).collection("friends").doc(fbUser.uid).delete();
+  loadFriendsList();
 }
 
 async function getFriends() {
@@ -323,6 +431,28 @@ async function getFriends() {
   return friends.sort(function(a, b) { return b.totalMinutes - a.totalMinutes; });
 }
 
+async function getFriendsWithWeekly() {
+  if (!fbUser) return [];
+  var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").get();
+  var friends = [];
+  var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  for (var i = 0; i < snap.docs.length; i++) {
+    var fId = snap.docs[i].id;
+    var fUser = await firebase.firestore().collection("users").doc(fId).get();
+    if (fUser.exists) {
+      var activitySnap = await firebase.firestore().collection("users").doc(fId).collection("activity").where("clientTs", ">=", weekAgo).get();
+      var weeklyMinutes = 0;
+      activitySnap.forEach(function(a) { weeklyMinutes += (a.data().seconds || 0) / 60; });
+      friends.push({
+        id: fId, displayName: fUser.data().displayName || "Amigo",
+        friendCode: fUser.data().friendCode,
+        totalMinutes: Math.round(weeklyMinutes)
+      });
+    }
+  }
+  return friends.sort(function(a, b) { return b.totalMinutes - a.totalMinutes; });
+}
+
 async function getMyFriendCode() {
   if (!fbUser) return null;
   var doc = await firebase.firestore().collection("users").doc(fbUser.uid).get();
@@ -332,11 +462,57 @@ async function getMyFriendCode() {
 function totalFromState(s) {
   if (!s) return 0;
   var t = 0;
-  (s.sessions || []).forEach(function(ses) { t += ses.minutes || 0; });
-  (s.youtube || []).forEach(function(v) { t += ((v.duration || 0) / 60); });
-  (s.shows || []).forEach(function(sh) { t += ((sh.totalEp || 0) * (sh.epDuration || 0) / 60); });
-  (s.movies || []).forEach(function(m) { t += ((m.duration || 0) / 60); });
+  (s.sessions || []).forEach(function(ses) { t += (ses.seconds || 0) / 60; });
+  (s.youtube || []).forEach(function(v) { t += ((v.seconds || v.duration || 0) / 60); });
+  (s.shows || []).forEach(function(sh) { t += ((sh.episodesWatched || 0) * (sh.epDuration || 0)); });
+  (s.movies || []).forEach(function(m) { t += ((m.seconds || m.duration || 0) / 60); });
   return Math.round(t);
+}
+
+async function getFriendProfile(friendId) {
+  if (!fbUser) return null;
+  var fUser = await firebase.firestore().collection("users").doc(friendId).get();
+  if (!fUser.exists) return null;
+  var fData = await firebase.firestore().collection("users").doc(friendId).collection("data").doc("state").get();
+  var sessions = (fData.exists && fData.data().state) ? fData.data().state.sessions || [] : [];
+  var langTotal = {};
+  var langSessions = {};
+  sessions.forEach(function(s) {
+    var lang = s.lang || "otro";
+    var mins = (s.seconds || 0) / 60;
+    if (!langTotal[lang]) { langTotal[lang] = 0; langSessions[lang] = 0; }
+    langTotal[lang] += mins;
+    langSessions[lang]++;
+  });
+  var recent = sessions.slice(-5).reverse();
+  return {
+    displayName: fUser.data().displayName || "Amigo",
+    friendCode: fUser.data().friendCode || "",
+    langTotal: langTotal,
+    langSessions: langSessions,
+    recent: recent,
+    totalMinutes: totalFromState(fData.exists ? fData.data().state : null)
+  };
+}
+
+/* ---------- ACTIVITY FEED ---------- */
+
+async function getFriendActivityFeed() {
+  if (!fbUser) return [];
+  var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").get();
+  var all = [];
+  for (var i = 0; i < snap.docs.length; i++) {
+    var fId = snap.docs[i].id;
+    var fUser = await firebase.firestore().collection("users").doc(fId).get();
+    var fName = fUser.exists ? (fUser.data().displayName || "Amigo") : "Amigo";
+    var actSnap = await firebase.firestore().collection("users").doc(fId).collection("activity").orderBy("clientTs", "desc").limit(3).get();
+    actSnap.forEach(function(a) {
+      var d = a.data();
+      all.push({ friendName: fName, friendId: fId, ts: d.clientTs || 0, note: d.note || "", seconds: d.seconds || 0, lang: d.lang || "", cat: d.cat || "" });
+    });
+  }
+  all.sort(function(a, b) { return b.ts - a.ts; });
+  return all.slice(0, 10);
 }
 
 /* ---------- UI ---------- */
@@ -355,6 +531,7 @@ function updateProfileUI() {
     var emailEl = document.getElementById("prof-user-email");
     var avatarBig = document.getElementById("prof-user-avatar");
     var codeEl = document.getElementById("prof-friend-code");
+    var verifyBanner = document.getElementById("prof-verify-banner");
 
     var ql = document.getElementById("quick-logout");
     if (ql) ql.style.display = "block";
@@ -369,17 +546,46 @@ function updateProfileUI() {
     if (loggedIn) loggedIn.style.display = "block";
     if (nameEl) nameEl.textContent = fbUser.displayName || fbUser.email.split("@")[0];
     if (emailEl) emailEl.textContent = fbUser.email;
+
+    // email verification banner
+    if (verifyBanner) {
+      if (!fbUser.emailVerified) {
+        verifyBanner.style.display = "block";
+        var sendBtn = document.getElementById("prof-send-verify");
+        if (sendBtn) sendBtn.onclick = function(e) {
+          e.preventDefault();
+          fbUser.sendEmailVerification().then(function() {
+            setStatus(document.getElementById("prof-status"), "Email de verificacin reenviado", "ok");
+          }).catch(function(e) {
+            setStatus(document.getElementById("prof-status"), e.message, "err");
+          });
+        };
+      } else {
+        verifyBanner.style.display = "none";
+      }
+    }
+
+    // try loading custom avatar first
     if (avatarBig) {
-      var initial = (fbUser.displayName || fbUser.email)[0].toUpperCase();
-      avatarBig.textContent = initial;
-      var gravBig = new Image();
-      gravBig.src = getGravatarUrl(fbUser.email, 96);
-      gravBig.onload = function() {
-        if (gravBig.width > 10) { avatarBig.textContent = ""; avatarBig.style.backgroundImage = "url(" + gravBig.src + ")"; avatarBig.style.backgroundSize = "cover"; }
-      };
+      var storageRef = firebase.storage().ref("avatars/" + fbUser.uid);
+      storageRef.getDownloadURL().then(function(url) {
+        avatarBig.textContent = "";
+        avatarBig.style.backgroundImage = "url(" + url + ")";
+        avatarBig.style.backgroundSize = "cover";
+      }).catch(function() {
+        // fallback to gravatar
+        var initial = (fbUser.displayName || fbUser.email)[0].toUpperCase();
+        avatarBig.textContent = initial;
+        var gravBig = new Image();
+        gravBig.src = getGravatarUrl(fbUser.email, 96);
+        gravBig.onload = function() {
+          if (gravBig.width > 10) { avatarBig.textContent = ""; avatarBig.style.backgroundImage = "url(" + gravBig.src + ")"; avatarBig.style.backgroundSize = "cover"; }
+        };
+      });
     }
     getMyFriendCode().then(function(c) { if (codeEl) codeEl.textContent = c || "---"; });
     loadFriendsList();
+    loadActivityFeed();
 
     var statsEl = document.getElementById("prof-stats");
     if (statsEl) {
@@ -399,22 +605,98 @@ function updateProfileUI() {
   }
 }
 
+var weeklyMode = false;
+
 async function loadFriendsList() {
   var el = document.getElementById("prof-friends-list");
   if (!el) return;
-  var friends = await getFriends();
+  showLoading("prof-friends-list", true);
+  var friends = weeklyMode ? await getFriendsWithWeekly() : await getFriends();
   if (friends.length === 0) {
-    el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">Aún no tienes amigos. Comparte tu código.</p>';
+    el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">An no tienes amigos. Comparte tu cdigo.</p>';
     return;
   }
   el.innerHTML = friends.map(function(f, i) {
     var hours = Math.floor(f.totalMinutes / 60);
     var mins = f.totalMinutes % 60;
-    return '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0;border-bottom:1px solid var(--line);font-size:13px;">' +
-      '<span style="width:18px;font-size:11px;color:var(--ink-soft);text-align:center;">' + (i + 1) + '</span>' +
-      '<span style="flex:1;">' + f.displayName + '</span>' +
-      '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;">' + hours + 'h ' + mins + 'm</span></div>';
+    return '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0;border-bottom:1px solid var(--line);font-size:13px;" data-id="' + f.id + '">' +
+      '<span style="width:18px;font-size:11px;color:var(--ink-soft);text-align:center;cursor:pointer;" class="friend-profile-trigger" data-id="' + f.id + '">' + (i + 1) + '</span>' +
+      '<span style="flex:1;cursor:pointer;color:var(--accent);" class="friend-profile-trigger" data-id="' + f.id + '">' + f.displayName + '</span>' +
+      '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;">' + hours + 'h ' + mins + 'm</span>' +
+      '<button class="friend-remove" data-id="' + f.id + '" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:11px;padding:0;margin-left:2px;">x</button></div>';
   }).join("");
+
+  // wire remove buttons
+  el.querySelectorAll(".friend-remove").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      removeFriend(this.dataset.id);
+    });
+  });
+  // wire profile triggers
+  el.querySelectorAll(".friend-profile-trigger").forEach(function(el2) {
+    el2.addEventListener("click", function() {
+      showFriendProfile(this.dataset.id);
+    });
+  });
+}
+
+async function loadActivityFeed() {
+  var el = document.getElementById("prof-activity-feed");
+  if (!el) return;
+  var items = await getFriendActivityFeed();
+  if (items.length === 0) {
+    el.innerHTML = '<p style="color:var(--ink-soft);font-size:11px;margin:0.3rem 0;">Sin actividad reciente de amigos</p>';
+    return;
+  }
+  el.innerHTML = '<p style="font-size:11px;font-weight:600;margin:0 0 0.3rem;color:var(--ink-soft);">Actividad reciente</p>' +
+    items.map(function(item) {
+      var mins = Math.round((item.seconds || 0) / 60);
+      var t = '';
+      if (item.ts) {
+        var diff = Date.now() - item.ts;
+        if (diff < 60000) t = 'ahora';
+        else if (diff < 3600000) t = Math.floor(diff / 60000) + 'm';
+        else if (diff < 86400000) t = Math.floor(diff / 3600000) + 'h';
+        else t = Math.floor(diff / 86400000) + 'd';
+      }
+      return '<div style="display:flex;align-items:center;gap:0.3rem;padding:0.2rem 0;font-size:11px;border-bottom:1px solid var(--line);">' +
+        '<span style="font-weight:500;">' + item.friendName + '</span>' +
+        '<span style="color:var(--ink-soft);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (item.note || item.cat || "") + '</span>' +
+        '<span style="font-family:var(--mono);color:var(--ink-soft);">' + mins + 'm</span>' +
+        (t ? '<span style="color:var(--ink-soft);font-size:10px;">' + t + '</span>' : '') + '</div>';
+    }).join("");
+}
+
+/* ---------- FRIEND PROFILE MODAL ---------- */
+
+async function showFriendProfile(friendId) {
+  var overlay = document.getElementById("friend-modal-overlay");
+  if (!overlay) return;
+  var profile = await getFriendProfile(friendId);
+  if (!profile) return;
+  document.getElementById("fm-name").textContent = profile.displayName;
+  document.getElementById("fm-total").textContent = "Total: " + Math.floor(profile.totalMinutes / 60) + "h " + profile.totalMinutes % 60 + "m";
+  var avatarEl = document.getElementById("fm-avatar");
+  avatarEl.textContent = profile.displayName[0].toUpperCase();
+
+  // language breakdown
+  var langHtml = "";
+  Object.keys(profile.langTotal).sort(function(a, b) { return profile.langTotal[b] - profile.langTotal[a]; }).forEach(function(lang) {
+    var mins = Math.round(profile.langTotal[lang]);
+    langHtml += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:0.15rem 0;"><span>' + lang + '</span><span style="font-family:var(--mono);color:var(--ink-soft);">' + Math.floor(mins / 60) + 'h ' + mins % 60 + 'm (' + profile.langSessions[lang] + ' ses)</span></div>';
+  });
+  document.getElementById("fm-langs").innerHTML = langHtml || '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Sin datos</p>';
+
+  // recent sessions
+  var recentHtml = "";
+  profile.recent.forEach(function(s) {
+    var mins = Math.round((s.seconds || 0) / 60);
+    recentHtml += '<div style="padding:0.15rem 0;">' + (s.note || s.cat || "Sesin") + ' — ' + mins + 'm</div>';
+  });
+  document.getElementById("fm-recent").innerHTML = recentHtml ? '<p style="font-weight:500;margin:0 0 0.2rem;">ltimas sesiones</p>' + recentHtml : '<p style="color:var(--ink-soft);margin:0;">Sin sesiones recientes</p>';
+
+  overlay.style.display = "flex";
 }
 
 function toggleProfileDropdown() {
@@ -424,7 +706,7 @@ function toggleProfileDropdown() {
   var isOpen = dd.classList.contains("open");
   dd.classList.toggle("open");
   if (backdrop) backdrop.style.display = isOpen ? "none" : "block";
-  if (fbUser && !isOpen) loadFriendsList();
+  if (fbUser && !isOpen) { loadFriendsList(); loadActivityFeed(); loadPendingRequests(); }
 }
 
 function closeProfileDropdown() {
@@ -434,12 +716,42 @@ function closeProfileDropdown() {
   if (backdrop) backdrop.style.display = "none";
 }
 
+/* ---------- PHOTO UPLOAD ---------- */
+
+function handlePhotoUpload(file) {
+  if (!fbUser || !file) return;
+  setSyncStatus("Subiendo foto...");
+  var ref = firebase.storage().ref("avatars/" + fbUser.uid);
+  var task = ref.put(file);
+  task.then(function() {
+    return ref.getDownloadURL();
+  }).then(function(url) {
+    return fbUser.updateProfile({ photoURL: url });
+  }).then(function() {
+    updateProfileUI();
+    setSyncStatus("Foto actualizada");
+    setTimeout(function() { setSyncStatus(""); }, 2000);
+  }).catch(function(e) {
+    console.warn("Photo upload failed", e);
+    setSyncStatus("Error al subir foto");
+  });
+}
+
 /* ---------- HOOKS ---------- */
 
 var originalSaveStateForCloud = saveState;
 saveState = function() {
   originalSaveStateForCloud();
-  if (fbUser) saveCloudState();
+  if (fbUser) {
+    // log any new sessions since last check
+    if (state.sessions.length > lastSessionLen) {
+      for (var i = lastSessionLen; i < state.sessions.length; i++) {
+        logSessionActivity(state.sessions[i]);
+      }
+    }
+    lastSessionLen = state.sessions.length;
+    saveCloudState();
+  }
 };
 
 /* ---------- INIT ---------- */
@@ -468,8 +780,8 @@ saveState = function() {
     var pass = document.getElementById("prof-pass").value;
     var name = document.getElementById("prof-name").value.trim() || email.split("@")[0];
     if (!email || !pass) { setStatus(document.getElementById("prof-status"), "Completa todos los campos", "err"); return; }
-    if (pass.length < 6) { setStatus(document.getElementById("prof-status"), "La contraseña debe tener al menos 6 caracteres", "err"); return; }
-    try { await fbSignUp(email, pass, name); setStatus(document.getElementById("prof-status"), "✓ Cuenta creada", "ok"); closeProfileDropdown(); }
+    if (pass.length < 6) { setStatus(document.getElementById("prof-status"), "La contrasea debe tener al menos 6 caracteres", "err"); return; }
+    try { await fbSignUp(email, pass, name); setStatus(document.getElementById("prof-status"), " Cuenta creada. Verifica tu email.", "ok"); closeProfileDropdown(); }
     catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
   });
 
@@ -477,8 +789,8 @@ saveState = function() {
   if (loginBtn) loginBtn.addEventListener("click", async function() {
     var email = document.getElementById("prof-email").value.trim();
     var pass = document.getElementById("prof-pass").value;
-    if (!email || !pass) { setStatus(document.getElementById("prof-status"), "Introduce email y contraseña", "err"); return; }
-    try { await fbSignIn(email, pass); setStatus(document.getElementById("prof-status"), "✓ Sesión iniciada", "ok"); closeProfileDropdown(); }
+    if (!email || !pass) { setStatus(document.getElementById("prof-status"), "Introduce email y contrasea", "err"); return; }
+    try { await fbSignIn(email, pass); setStatus(document.getElementById("prof-status"), " Sesin iniciada", "ok"); closeProfileDropdown(); }
     catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
   });
 
@@ -504,7 +816,7 @@ saveState = function() {
     var name = input.value.trim();
     if (!name) { input.style.display = "none"; return; }
     fbUpdateDisplayName(name).then(function() {
-      if (status) setStatus(status, "✓ Nombre actualizado", "ok");
+      if (status) setStatus(status, " Nombre actualizado", "ok");
       input.style.display = "none";
     }).catch(function(e) {
       if (status) setStatus(status, e.message, "err");
@@ -515,7 +827,7 @@ saveState = function() {
   if (resetPassBtn) resetPassBtn.addEventListener("click", async function() {
     try {
       await fbResetPassword();
-      setStatus(document.getElementById("prof-status"), "✓ Email de recuperación enviado", "ok");
+      setStatus(document.getElementById("prof-status"), " Email de recuperacin enviado", "ok");
     } catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
   });
 
@@ -538,8 +850,11 @@ saveState = function() {
     var input = document.getElementById("prof-friend-input");
     var code = input ? input.value.trim() : "";
     if (!code) return;
-    try { await addFriendByCode(code); setStatus(document.getElementById("prof-friend-status"), "✓ Amigo añadido", "ok"); if (input) input.value = ""; loadFriendsList(); }
-    catch (e) { setStatus(document.getElementById("prof-friend-status"), e.message, "err"); }
+    try {
+      await addFriendByCode(code);
+      setStatus(document.getElementById("prof-friend-status"), " Solicitud enviada", "ok");
+      if (input) input.value = "";
+    } catch (e) { setStatus(document.getElementById("prof-friend-status"), e.message, "err"); }
   });
 
   var copyBtn = document.getElementById("prof-copy-code");
@@ -548,6 +863,35 @@ saveState = function() {
     if (code && code.textContent) {
       if (navigator.clipboard) navigator.clipboard.writeText(code.textContent).catch(function() {});
     }
+  });
+
+  // rank toggle
+  var rankToggle = document.getElementById("prof-rank-toggle");
+  if (rankToggle) rankToggle.addEventListener("click", function() {
+    weeklyMode = !weeklyMode;
+    rankToggle.textContent = weeklyMode ? "Ranking semanal" : "Ranking general";
+    loadFriendsList();
+  });
+
+  // photo upload
+  var photoInput = document.getElementById("prof-photo-input");
+  if (photoInput) photoInput.addEventListener("change", function() {
+    if (this.files && this.files[0]) handlePhotoUpload(this.files[0]);
+  });
+
+  // friend request actions (delegated)
+  document.addEventListener("click", function(e) {
+    if (e.target.classList.contains("req-accept")) {
+      acceptFriendRequest(e.target.dataset.id, e.target.dataset.from);
+    } else if (e.target.classList.contains("req-decline")) {
+      declineFriendRequest(e.target.dataset.id);
+    }
+  });
+
+  // friend modal close
+  var fmClose = document.getElementById("fm-close");
+  if (fmClose) fmClose.addEventListener("click", function() {
+    document.getElementById("friend-modal-overlay").style.display = "none";
   });
 
 })();
