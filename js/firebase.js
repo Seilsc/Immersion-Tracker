@@ -426,14 +426,14 @@ async function getFriends() {
   return people.sort(function(a, b) { return b.totalMinutes - a.totalMinutes; });
 }
 
-async function getFriendsWithWeekly() {
+async function getFriendsWithRange(days) {
   if (!fbUser) return [];
   var people = [];
-  var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  var since = Date.now() - days * 24 * 60 * 60 * 1000;
   // include self
   var myUser = await firebase.firestore().collection("users").doc(fbUser.uid).get();
   if (myUser.exists) {
-    var myActivity = await firebase.firestore().collection("users").doc(fbUser.uid).collection("activity").where("clientTs", ">=", weekAgo).get();
+    var myActivity = await firebase.firestore().collection("users").doc(fbUser.uid).collection("activity").where("clientTs", ">=", since).get();
     var myMinutes = 0;
     myActivity.forEach(function(a) { myMinutes += (a.data().seconds || 0) / 60; });
     people.push({
@@ -447,13 +447,13 @@ async function getFriendsWithWeekly() {
     var fId = snap.docs[i].id;
     var fUser = await firebase.firestore().collection("users").doc(fId).get();
     if (fUser.exists) {
-      var activitySnap = await firebase.firestore().collection("users").doc(fId).collection("activity").where("clientTs", ">=", weekAgo).get();
-      var weeklyMinutes = 0;
-      activitySnap.forEach(function(a) { weeklyMinutes += (a.data().seconds || 0) / 60; });
+      var activitySnap = await firebase.firestore().collection("users").doc(fId).collection("activity").where("clientTs", ">=", since).get();
+      var pMinutes = 0;
+      activitySnap.forEach(function(a) { pMinutes += (a.data().seconds || 0) / 60; });
       people.push({
         id: fId, displayName: fUser.data().displayName || "Amigo",
         friendCode: fUser.data().friendCode,
-        totalMinutes: Math.round(weeklyMinutes)
+        totalMinutes: Math.round(pMinutes)
       });
     }
   }
@@ -705,19 +705,23 @@ function renderSocialPage() {
   loadSocialPendingRequests();
 }
 
-var socialWeeklyMode = false;
+var socialRankMode = "general";
 
 async function loadSocialFriendsList() {
   var el = document.getElementById("social-friends-list");
   if (!el) return;
   el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">Cargando...</p>';
-  var friends = socialWeeklyMode ? await getFriendsWithWeekly() : await getFriends();
+  var friends;
+  if (socialRankMode === "general") {
+    friends = await getFriends();
+  } else {
+    var days = socialRankMode === "weekly" ? 7 : socialRankMode === "monthly" ? 30 : 365;
+    friends = await getFriendsWithRange(days);
+  }
   if (friends.length === 0) {
     el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">An no tienes amigos. Comparte tu cdigo o añade a alguien.</p>';
     return;
   }
-  // if the only result is self (weekly mode, no friends), still show it
-  if (socialWeeklyMode && friends.length === 1 && friends[0].isSelf) { /* continue to render */ }
   el.innerHTML = friends.map(function(f, i) {
     var hours = Math.floor(f.totalMinutes / 60);
     var mins = f.totalMinutes % 60;
@@ -729,7 +733,7 @@ async function loadSocialFriendsList() {
     return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid var(--line);font-size:13px;' + (rowBg ? 'background:' + rowBg + ';border-radius:6px;' : '') + '" data-id="' + f.id + '">' +
       '<span style="width:22px;height:22px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:' + color + ';' + (isSelf ? '' : 'cursor:pointer;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + (i + 1) + '</span>' +
       '<span style="flex:1;' + (isSelf ? '' : 'cursor:pointer;color:var(--accent);font-weight:500;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + nameLabel + '</span>' +
-      '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;">' + hours + 'h ' + mins + 'm</span>' +
+      '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;text-align:right;min-width:4.5rem;">' + hours + 'h ' + mins + 'm</span>' +
       (isSelf ? '' : '<button class="s-friend-remove" data-id="' + f.id + '" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:13px;padding:0 4px;" title="Eliminar amigo">&times;</button>') + '</div>';
   }).join("");
   el.querySelectorAll(".s-friend-remove").forEach(function(btn) {
@@ -945,9 +949,12 @@ saveState = function() {
   });
 
   var socialRankToggle = document.getElementById("social-rank-toggle");
+  var modes = ["general", "weekly", "monthly", "yearly"];
+  var modeLabels = { general: "Ranking general", weekly: "Ranking semanal", monthly: "Ranking mensual", yearly: "Ranking anual" };
   if (socialRankToggle) socialRankToggle.addEventListener("click", function() {
-    socialWeeklyMode = !socialWeeklyMode;
-    socialRankToggle.textContent = socialWeeklyMode ? "Ranking semanal" : "Ranking general";
+    var idx = modes.indexOf(socialRankMode);
+    socialRankMode = modes[(idx + 1) % modes.length];
+    socialRankToggle.textContent = modeLabels[socialRankMode];
     loadSocialFriendsList();
   });
 
