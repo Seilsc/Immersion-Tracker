@@ -285,6 +285,17 @@ function stopRealTimeSync() {
   if (snapshotUnsub) { snapshotUnsub(); snapshotUnsub = null; }
 }
 
+function loadGravatarBig(el) {
+  if (!el || !fbUser) return;
+  var initial = (fbUser.displayName || fbUser.email)[0].toUpperCase();
+  el.textContent = initial;
+  var gravBig = new Image();
+  gravBig.src = getGravatarUrl(fbUser.email, 96);
+  gravBig.onload = function() {
+    if (gravBig.width > 10) { el.textContent = ""; el.style.backgroundImage = "url(" + gravBig.src + ")"; el.style.backgroundSize = "cover"; }
+  };
+}
+
 function getPersonalStats() {
   var totalSessions = state.sessions.length;
   var totalMinutes = 0;
@@ -530,11 +541,24 @@ function updateProfileUI() {
     if (nameEl) nameEl.textContent = fbUser.displayName || fbUser.email.split("@")[0];
     if (emailEl) emailEl.textContent = fbUser.email;
 
-    // load bio
-    if (bioInput) {
+    // load bio and avatar from Firestore
+    if (bioInput || avatarBig) {
       firebase.firestore().collection("users").doc(fbUser.uid).get().then(function(doc) {
-        if (doc.exists && doc.data().bio !== undefined) bioInput.value = doc.data().bio;
-        else bioInput.value = "";
+        if (doc.exists) {
+          var d = doc.data();
+          if (bioInput) bioInput.value = d.bio || "";
+          if (avatarBig && d.avatarUrl) {
+            avatarBig.textContent = "";
+            avatarBig.style.backgroundImage = "url(" + d.avatarUrl + ")";
+            avatarBig.style.backgroundSize = "cover";
+          } else if (avatarBig) {
+            loadGravatarBig(avatarBig);
+          }
+        } else {
+          if (avatarBig) loadGravatarBig(avatarBig);
+        }
+      }).catch(function() {
+        if (avatarBig) loadGravatarBig(avatarBig);
       });
     }
 
@@ -554,29 +578,6 @@ function updateProfileUI() {
       } else {
         verifyBanner.style.display = "none";
       }
-    }
-
-    // try loading custom avatar first
-    if (avatarBig && firebase.storage) {
-      firebase.storage().ref("avatars/" + fbUser.uid).getDownloadURL().then(function(url) {
-        avatarBig.textContent = "";
-        avatarBig.style.backgroundImage = "url(" + url + ")";
-        avatarBig.style.backgroundSize = "cover";
-      }).catch(function() {
-        loadGravatarBig(avatarBig);
-      });
-    } else if (avatarBig) {
-      loadGravatarBig(avatarBig);
-    }
-
-    function loadGravatarBig(el) {
-      var initial = (fbUser.displayName || fbUser.email)[0].toUpperCase();
-      el.textContent = initial;
-      var gravBig = new Image();
-      gravBig.src = getGravatarUrl(fbUser.email, 96);
-      gravBig.onload = function() {
-        if (gravBig.width > 10) { el.textContent = ""; el.style.backgroundImage = "url(" + gravBig.src + ")"; el.style.backgroundSize = "cover"; }
-      };
     }
 
     var statsEl = document.getElementById("prof-stats");
@@ -657,11 +658,10 @@ function handlePhotoUpload(file) {
   if (!firebase.storage) { setSyncStatus("Storage no disponible"); return; }
   setSyncStatus("Subiendo foto...");
   var ref = firebase.storage().ref("avatars/" + fbUser.uid);
-  var task = ref.put(file);
-  task.then(function() {
+  ref.put(file).then(function() {
     return ref.getDownloadURL();
   }).then(function(url) {
-    return fbUser.updateProfile({ photoURL: url });
+    return firebase.firestore().collection("users").doc(fbUser.uid).update({ avatarUrl: url });
   }).then(function() {
     updateProfileUI();
     setSyncStatus("Foto actualizada");
