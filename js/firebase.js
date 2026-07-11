@@ -522,6 +522,11 @@ function updateProfileUI() {
       img.src = gravUrl;
       img.onerror = function() { img.style.display = "none"; if (avatar) avatar.style.display = "flex"; };
     }
+    // try loading custom photo for navbar avatar
+    firebase.firestore().collection("users").doc(fbUser.uid).get().then(function(doc) {
+      var av = doc.exists && (doc.data().avatarBase64 || doc.data().avatarUrl);
+      if (av && img) { img.src = av; if (avatar) avatar.style.display = "none"; img.style.display = "block"; }
+    }).catch(function() {});
     if (loggedOut) loggedOut.style.display = "none";
     if (loggedIn) loggedIn.style.display = "block";
     if (nameEl) nameEl.textContent = fbUser.displayName || fbUser.email.split("@")[0];
@@ -649,6 +654,11 @@ function handlePhotoUpload(file) {
   var reader = new FileReader();
   reader.onload = function(e) {
     var dataUrl = e.target.result;
+    // update navbar avatar immediately
+    var navImg = document.getElementById("profile-img");
+    var navIcon = document.getElementById("profile-avatar");
+    if (navImg) { navImg.src = dataUrl; navImg.style.display = "block"; }
+    if (navIcon) navIcon.style.display = "none";
     firebase.firestore().collection("users").doc(fbUser.uid).update({ avatarBase64: dataUrl }).then(function() {
       updateProfileUI();
       setSyncStatus("Foto actualizada");
