@@ -436,19 +436,16 @@ function renderShows() {
     const actDef = SHOW_ACTIVITIES.find(a => a.value === show.activity) || SHOW_ACTIVITIES[0];
     const isManualAct = actDef.manualTime;
     const epSec = show.epDuration * 60 * (show.episodesWatched || 0);
-    const actOptions = SHOW_ACTIVITIES.map(a => `<option value="${a.value}"${show.activity === a.value ? " selected" : ""}>${a.label}${a.manualTime ? " ⏱" : ""}</option>`).join("");
     const card = document.createElement("div");
     card.className = "show-card";
     card.innerHTML = `
-      <div class="show-card-head"><div><div class="show-name"><a href="${show.url || `https://www.themoviedb.org/tv/${show.tmdbId}`}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${show.name}</a></div><div class="show-meta">${show.epDuration} min/ep · ${show.lang} · TMDB</div></div><button class="danger-link" onclick="removeShow(${i})">eliminar</button></div>
-      <div class="show-controls"><label style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">Actividad</label><select class="show-activity-select" id="show-act-${i}">${actOptions}</select></div>
+      <div class="show-card-head"><div><div class="show-name"><a href="${show.url || `https://www.themoviedb.org/tv/${show.tmdbId}`}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${show.name}</a></div><div class="show-meta">${show.epDuration} min/ep · ${show.lang} · ${show.activity}</div></div><button class="danger-link" onclick="removeShow(${i})">eliminar</button></div>
       <div class="show-controls" style="margin-top:0.5rem;"><label style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">Episodios vistos</label>
         <div class="num-stepper"><input type="number" id="ep-${i}" min="0" value="${show.episodesWatched || 0}" /><div class="num-stepper-btns"><button type="button" class="num-stepper-btn plus" data-target="ep-${i}">▴</button><button type="button" class="num-stepper-btn minus" data-target="ep-${i}">▾</button></div></div>
         <span class="show-total" id="show-ep-total-${i}">${formatHMS(epSec)}</span></div>
       ${isManualAct ? `<div style="margin-top:0.6rem;"><span style="font-family:var(--mono);font-size:11px;color:var(--ink-soft);"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> Actividad interactiva — registra tu tiempo real:</span><div style="margin-top:0.4rem;">${renderMediaTimeControls(i, 'show', show.manualSeconds || 0, epSec)}</div></div>` : ``}
       <div style="margin-top:0.75rem;padding-top:0.6rem;border-top:1px solid var(--line);display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;"><button class="accent" style="font-size:13px;padding:0.45rem 1rem;" onclick="saveShowSession(${i})"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span> Guardar sesión</button><span class="status-msg" id="show-save-status-${i}" style="margin:0;"></span></div>`;
     list.appendChild(card);
-    card.querySelector(`#show-act-${i}`).addEventListener("change", (e) => { state.shows[i].activity = e.target.value; saveState(); renderShows(); });
     const epInputEl = card.querySelector(`#ep-${i}`);
     epInputEl.addEventListener("input", (e) => {
       const val = Math.max(0, parseInt(e.target.value)||0);
@@ -550,16 +547,13 @@ function renderMovies() {
     const realIdx = state.movies.indexOf(movie);
     const actDef = MEDIA_ACTIVITIES.find(a => a.value === movie.activity) || MEDIA_ACTIVITIES[0];
     const isManualAct = actDef.manualTime;
-    const actOptions = MEDIA_ACTIVITIES.map(a => `<option value="${a.value}"${movie.activity === a.value ? " selected" : ""}>${a.label}${a.manualTime ? " ⏱" : ""}</option>`).join("");
     const entry = document.createElement("div");
     entry.className = "show-card";
     entry.innerHTML = `
-      <div class="show-card-head"><div><div class="show-name"><a href="${movie.url || `https://www.themoviedb.org/movie/${movie.tmdbId}`}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${movie.title || "Película sin título"}</a></div><div class="show-meta">${movie.lang || ""} · ${movie.year || ""} · duración TMDB: ${formatHMS(movie.seconds)}</div></div><button class="danger-link" onclick="removeMovie(${realIdx})">eliminar</button></div>
-      <div class="show-controls"><label style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">Actividad</label><select class="show-activity-select" id="movie-act-${realIdx}">${actOptions}</select></div>
+      <div class="show-card-head"><div><div class="show-name"><a href="${movie.url || `https://www.themoviedb.org/movie/${movie.tmdbId}`}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${movie.title || "Película sin título"}</a></div><div class="show-meta">${movie.lang || ""} · ${movie.year || ""} · ${movie.activity} · ${formatHMS(movie.seconds)}</div></div><button class="danger-link" onclick="removeMovie(${realIdx})">eliminar</button></div>
       ${isManualAct ? `<div style="margin-top:0.6rem;"><span style="font-family:var(--mono);font-size:11px;color:var(--ink-soft);"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> Actividad interactiva — registra tu tiempo real:</span><div style="margin-top:0.4rem;">${renderMediaTimeControls(realIdx, 'movie', movie.manualSeconds || 0, movie.seconds)}</div></div>` : ``}
       <div style="margin-top:0.75rem;padding-top:0.6rem;border-top:1px solid var(--line);display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;"><button class="accent" style="font-size:13px;padding:0.45rem 1rem;" onclick="saveMovieSession(${realIdx})"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span> Guardar sesión</button><span class="status-msg" id="movie-save-status-${realIdx}" style="margin:0;"></span></div>`;
     list.appendChild(entry);
-    entry.querySelector(`#movie-act-${realIdx}`).addEventListener("change", (e) => { state.movies[realIdx].activity = e.target.value; saveState(); renderMovies(); });
   });
 }
 
