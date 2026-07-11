@@ -420,9 +420,21 @@ async function getFriends() {
 
 async function getFriendsWithWeekly() {
   if (!fbUser) return [];
-  var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").get();
-  var friends = [];
+  var people = [];
   var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  // include self
+  var myUser = await firebase.firestore().collection("users").doc(fbUser.uid).get();
+  if (myUser.exists) {
+    var myActivity = await firebase.firestore().collection("users").doc(fbUser.uid).collection("activity").where("clientTs", ">=", weekAgo).get();
+    var myMinutes = 0;
+    myActivity.forEach(function(a) { myMinutes += (a.data().seconds || 0) / 60; });
+    people.push({
+      id: fbUser.uid, displayName: myUser.data().displayName || "T",
+      isSelf: true,
+      totalMinutes: Math.round(myMinutes)
+    });
+  }
+  var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").get();
   for (var i = 0; i < snap.docs.length; i++) {
     var fId = snap.docs[i].id;
     var fUser = await firebase.firestore().collection("users").doc(fId).get();
@@ -430,14 +442,14 @@ async function getFriendsWithWeekly() {
       var activitySnap = await firebase.firestore().collection("users").doc(fId).collection("activity").where("clientTs", ">=", weekAgo).get();
       var weeklyMinutes = 0;
       activitySnap.forEach(function(a) { weeklyMinutes += (a.data().seconds || 0) / 60; });
-      friends.push({
+      people.push({
         id: fId, displayName: fUser.data().displayName || "Amigo",
         friendCode: fUser.data().friendCode,
         totalMinutes: Math.round(weeklyMinutes)
       });
     }
   }
-  return friends.sort(function(a, b) { return b.totalMinutes - a.totalMinutes; });
+  return people.sort(function(a, b) { return b.totalMinutes - a.totalMinutes; });
 }
 
 async function getMyFriendCode() {
@@ -696,14 +708,21 @@ async function loadSocialFriendsList() {
     el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">An no tienes amigos. Comparte tu cdigo o añade a alguien.</p>';
     return;
   }
+  // if the only result is self (weekly mode, no friends), still show it
+  if (socialWeeklyMode && friends.length === 1 && friends[0].isSelf) { /* continue to render */ }
   el.innerHTML = friends.map(function(f, i) {
     var hours = Math.floor(f.totalMinutes / 60);
     var mins = f.totalMinutes % 60;
-    return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid var(--line);font-size:13px;" data-id="' + f.id + '">' +
-      '<span style="width:22px;height:22px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--ink-soft);cursor:pointer;" class="s-friend-profile" data-id="' + f.id + '">' + (i + 1) + '</span>' +
-      '<span style="flex:1;cursor:pointer;color:var(--accent);font-weight:500;" class="s-friend-profile" data-id="' + f.id + '">' + f.displayName + '</span>' +
+    var isSelf = f.isSelf;
+    var nameLabel = f.displayName + (isSelf ? ' <span style="color:var(--ink-soft);font-weight:400;font-size:11px;">(t)</span>' : '');
+    var bg = isSelf ? 'var(--accent)' : 'var(--surface2)';
+    var color = isSelf ? '#fff' : 'var(--ink-soft)';
+    var rowBg = isSelf ? 'var(--accent-soft)' : '';
+    return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid var(--line);font-size:13px;' + (rowBg ? 'background:' + rowBg + ';border-radius:6px;padding-left:0.4rem;' : '') + '" data-id="' + f.id + '">' +
+      '<span style="width:22px;height:22px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:' + color + ';' + (isSelf ? '' : 'cursor:pointer;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + (i + 1) + '</span>' +
+      '<span style="flex:1;' + (isSelf ? '' : 'cursor:pointer;color:var(--accent);font-weight:500;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + nameLabel + '</span>' +
       '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;">' + hours + 'h ' + mins + 'm</span>' +
-      '<button class="s-friend-remove" data-id="' + f.id + '" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:13px;padding:0 4px;" title="Eliminar amigo">&times;</button></div>';
+      (isSelf ? '' : '<button class="s-friend-remove" data-id="' + f.id + '" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:13px;padding:0 4px;" title="Eliminar amigo">&times;</button>') + '</div>';
   }).join("");
   el.querySelectorAll(".s-friend-remove").forEach(function(btn) {
     btn.addEventListener("click", function(e) { e.stopPropagation(); removeFriend(this.dataset.id); });
