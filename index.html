@@ -832,9 +832,9 @@
   <div id="profile-dropdown-body">
     <!-- LOGGED OUT -->
     <div id="prof-logged-out">
-      <div class="prof-field"><label>Nombre</label><input type="text" id="prof-name" placeholder="Tu nombre" /></div>
-      <div class="prof-field"><label>Email</label><input type="email" id="prof-email" placeholder="correo@ejemplo.com" /></div>
-      <div class="prof-field"><label>Contraseña</label><input type="password" id="prof-pass" placeholder="mín. 6 caracteres" /></div>
+      <div class="prof-field"><label for="prof-name">Nombre</label><input type="text" id="prof-name" placeholder="Tu nombre" /></div>
+      <div class="prof-field"><label for="prof-email">Email</label><input type="email" id="prof-email" placeholder="correo@ejemplo.com" /></div>
+      <div class="prof-field"><label for="prof-pass">Contraseña</label><input type="password" id="prof-pass" placeholder="mín. 6 caracteres" /></div>
       <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
         <button id="prof-signup-btn" style="flex:1;">Crear cuenta</button>
         <button class="secondary" id="prof-login-btn" style="flex:1;">Iniciar sesión</button>
@@ -879,16 +879,16 @@
         </div>
       </div>
       <div class="prof-field">
-        <label>Nombre</label>
+        <label for="prof-edit-name-input">Nombre</label>
         <input type="text" id="prof-edit-name-input" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:13px;" placeholder="Tu nombre" />
       </div>
       <div class="prof-field">
-        <label>Biografía</label>
+        <label for="prof-edit-bio">Biografía</label>
         <textarea id="prof-edit-bio" rows="2" style="width:100%;resize:none;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:12px;font-family:var(--sans);" placeholder="Cuéntanos algo sobre ti..."></textarea>
       </div>
       <div class="prof-field">
-        <label>Color de acento</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:0.3rem;">Color de acento</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;" role="radiogroup" aria-label="Color de acento">
           <button class="prof-accent-btn" data-color="#b3502e" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#b3502e;cursor:pointer;" title="Terracota"></button>
           <button class="prof-accent-btn" data-color="#2f5d4f" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#2f5d4f;cursor:pointer;" title="Verde"></button>
           <button class="prof-accent-btn" data-color="#2d4f8a" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#2d4f8a;cursor:pointer;" title="Azul"></button>
@@ -948,13 +948,18 @@
       <div id="fm-langs"></div>
     </div>
     <!-- weekly chart -->
-    <div id="fm-chart-section" style="margin-bottom:1rem;">
+    <div id="fm-chart-section" style="margin-bottom:0.6rem;">
       <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;">Esta semana</div>
       <div id="fm-chart" style="display:flex;align-items:flex-end;gap:4px;height:60px;"></div>
     </div>
+    <!-- daily activity list -->
+    <div id="fm-daily-section" style="margin-bottom:1rem;">
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;">Actividad diaria</div>
+      <div id="fm-daily" style="max-height:160px;overflow-y:auto;font-size:11px;"></div>
+    </div>
     <!-- recent -->
     <div id="fm-recent-section" style="margin-bottom:0.8rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.3rem;">ltimas sesiones</div>
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.3rem;">&Uacute;ltimas sesiones</div>
       <div id="fm-recent" style="max-height:100px;overflow-y:auto;font-size:12px;color:var(--ink-soft);"></div>
     </div>
     <button id="fm-remove" style="width:100%;margin-top:0.4rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:none;color:var(--accent);cursor:pointer;font-size:12px;">Eliminar amigo</button>
@@ -999,8 +1004,8 @@
 
   <!-- LANGUAGE SELECTOR -->
   <div class="lang-bar">
-    <label>Idioma:</label>
-    <div id="lang-pills"></div>
+    <label for="lang-pills">Idioma:</label>
+    <div id="lang-pills" role="group" aria-label="Idioma"></div>
     <button class="lang-pill add-lang" id="add-lang-btn">+ Añadir idioma</button>
   </div>
 
@@ -1203,8 +1208,8 @@
 
     <!-- STATS LANGUAGE FILTER -->
     <div class="lang-bar" id="stats-lang-bar" style="margin-bottom:1.25rem;">
-      <label>Idioma</label>
-      <div id="stats-lang-pills" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+      <label for="stats-lang-pills">Idioma</label>
+      <div id="stats-lang-pills" style="display:flex;gap:0.5rem;flex-wrap:wrap;" role="group" aria-label="Idioma"></div>
     </div>
 
     <!-- KPI ROW -->
@@ -1327,7 +1332,7 @@
           <button id="social-copy-code" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:12px;padding:2px 6px;text-decoration:underline;">copiar</button>
         </div>
         <div class="social-section" style="margin-top:1rem;">
-          <label style="font-size:12px;font-weight:600;">Aadir amigo por cdigo</label>
+          <label for="social-friend-input" style="font-size:12px;font-weight:600;">A&ntilde;adir amigo por c&oacute;digo</label>
           <div style="display:flex;gap:0.4rem;margin-top:0.3rem;">
             <input type="text" id="social-friend-input" placeholder="Cdigo de 6 caracteres" style="flex:1;min-width:0;text-transform:uppercase;" />
             <button class="secondary" id="social-add-friend-btn" style="white-space:nowrap;">Enviar solicitud</button>
@@ -1388,8 +1393,8 @@
 
       <div style="margin-bottom:0.85rem;">
         <div class="field" style="margin-bottom:0.5rem;">
-          <label style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);">Tipo de objetivo</label>
-          <div style="display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;width:fit-content;margin-top:0.3rem;">
+          <div style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);">Tipo de objetivo</div>
+          <div style="display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;width:fit-content;margin-top:0.3rem;" role="radiogroup" aria-label="Tipo de objetivo">
             <button class="time-mode-tab active" id="goal-type-global" style="font-size:13px;padding:0.5rem 1.1rem;">Global</button>
             <button class="time-mode-tab" id="goal-type-per-lang" style="font-size:13px;padding:0.5rem 1.1rem;">Por idioma</button>
           </div>
@@ -1577,7 +1582,6 @@
           <div class="lang-dropdown" id="lang-dropdown"></div>
         </div>
         <div class="field" style="justify-content:flex-end;">
-          <label>&nbsp;</label>
           <button id="add-lang-confirm">Añadir idioma</button>
         </div>
       </div>

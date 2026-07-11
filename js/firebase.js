@@ -1,4 +1,4 @@
-/* ---------- FIREBASE ---------- */
+﻿/* ---------- FIREBASE ---------- */
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDXhVa7NsVa2oLFJPShzfyzUhDGNQUXC0s",
@@ -327,7 +327,7 @@ async function sendFriendRequest(code) {
   if (snap.empty) throw new Error("Cdigo invlido");
   var target = snap.docs[0];
   var targetId = target.id;
-  if (targetId === fbUser.uid) throw new Error("No puedes añadirte a ti mismo");
+  if (targetId === fbUser.uid) throw new Error("No puedes a&ntilde;adirte a ti mismo");
   // check if already friends
   var existing = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").doc(targetId).get();
   if (existing.exists) throw new Error("Ya sois amigos");
@@ -481,29 +481,40 @@ async function getRichProfileData(userId) {
   }).sort(function(a, b) { return b.minutes - a.minutes; });
   var maxLangMin = langArr.length > 0 ? langArr[0].minutes : 1;
   langArr.forEach(function(l) { l.pct = Math.round(l.minutes / maxLangMin * 100); });
-  // weekly chart (last 7 days)
-  var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  var actSnap = await firebase.firestore().collection("users").doc(userId).collection("activity").where("clientTs", ">=", weekAgo).get();
-  var dayTotals = {};
-  for (var d = 0; d < 7; d++) {
-    var t = new Date(Date.now() - d * 86400000);
-    dayTotals[t.toDateString()] = 0;
+  // gather all activities with timestamps
+  function getAllActivities(state) {
+    var all = [];
+    (state.sessions || []).forEach(function(s) { if (s.ts) all.push({ ts: s.ts, sec: s.seconds || 0 }); });
+    (state.youtube || []).forEach(function(v) { if (v.ts) all.push({ ts: v.ts, sec: v.seconds || v.duration || 0 }); });
+    (state.shows || []).forEach(function(sh) { if (sh.ts) all.push({ ts: sh.ts, sec: (sh.episodesWatched || 0) * (sh.epDuration || 0) * 60 }); });
+    (state.movies || []).forEach(function(m) { if (m.ts) all.push({ ts: m.ts, sec: m.seconds || m.duration || 0 }); });
+    return all;
   }
-  actSnap.forEach(function(a) {
-    var ts = a.data().clientTs || 0;
-    var key = new Date(ts).toDateString();
-    if (dayTotals[key] !== undefined) dayTotals[key] += (a.data().seconds || 0) / 60;
-  });
+  function buildDayTotals(allActivities, numDays) {
+    var totals = {};
+    for (var d = 0; d < numDays; d++) {
+      var t = new Date(Date.now() - d * 86400000);
+      totals[t.toDateString()] = 0;
+    }
+    var cutoff = Date.now() - numDays * 86400000;
+    allActivities.forEach(function(a) {
+      if (a.ts < cutoff) return;
+      var key = new Date(a.ts).toDateString();
+      if (totals[key] !== undefined) totals[key] += a.sec / 60;
+    });
+    return totals;
+  }
+  var allActivities = s ? getAllActivities(s) : [];
+  var dayTotals = buildDayTotals(allActivities, 7);
   var days = Object.keys(dayTotals).reverse().map(function(k) {
     return { label: new Date(k).toLocaleDateString("es", { weekday: "short" }), minutes: Math.round(dayTotals[k]) };
   });
   var maxDay = Math.max(1, days.reduce(function(mx, d) { return Math.max(mx, d.minutes); }, 0));
-  // streak
+  // streak from all activities (all-time)
   var streak = { current: 0, longest: 0 };
   var datesWithActivity = {};
-  actSnap.forEach(function(a) {
-    var ts = a.data().clientTs || 0;
-    datesWithActivity[new Date(ts).toDateString()] = true;
+  allActivities.forEach(function(a) {
+    if (a.ts) datesWithActivity[new Date(a.ts).toDateString()] = true;
   });
   var allDates = Object.keys(datesWithActivity).sort().reverse();
   var cur = 0, longest = 0;
@@ -519,21 +530,30 @@ async function getRichProfileData(userId) {
   }
   // calculate longest streak
   var sortedDates = Object.keys(datesWithActivity).sort();
-  var run = 0;
+  var run2 = 0;
   for (var si2 = 0; si2 < sortedDates.length; si2++) {
-    if (si2 === 0) { run = 1; continue; }
+    if (si2 === 0) { run2 = 1; continue; }
     var prev = new Date(sortedDates[si2 - 1]);
     var curr = new Date(sortedDates[si2]);
-    var diff = (curr - prev) / 86400000;
-    if (diff === 1) { run++; }
-    else { run = 1; }
-    if (run > longest) longest = run;
+    var diff2 = (curr - prev) / 86400000;
+    if (diff2 === 1) { run2++; }
+    else { run2 = 1; }
+    if (run2 > longest) longest = run2;
   }
   streak.current = cur;
   streak.longest = longest;
+  // daily totals (last 14 days) from all activities
+  var dayTotals14 = buildDayTotals(allActivities, 14);
+  var daily = Object.keys(dayTotals14).reverse().map(function(k) {
+    var d = new Date(k);
+    var today = new Date();
+    var dayDiff = Math.round((today - d) / 86400000);
+    var label = dayDiff === 0 ? "Hoy" : dayDiff === 1 ? "Ayer" : d.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" });
+    return { label: label, minutes: Math.round(dayTotals14[k]), dateStr: k };
+  });
   // recent sessions
   var recent = sessions.slice(-10).reverse().map(function(ses) {
-    return { note: ses.note || ses.cat || "Sesin", seconds: ses.seconds || 0, lang: ses.lang || "", ts: ses.ts || 0 };
+    return { note: ses.note || ses.cat || "Sesi&oacute;n", seconds: ses.seconds || 0, lang: ses.lang || "", ts: ses.ts || 0 };
   });
   return {
     displayName: ud.displayName || "Usuario",
@@ -544,6 +564,7 @@ async function getRichProfileData(userId) {
     totalMinutes: totalFromState(s),
     languages: langArr,
     weekly: { days: days, max: maxDay },
+    daily: daily,
     streak: streak,
     recent: recent
   };
@@ -670,16 +691,17 @@ function updateProfileUI() {
 /* ---------- RICH PROFILE MODAL ---------- */
 
 async function showRichProfile(friendId, isSelf) {
+  try {
   var overlay = document.getElementById("friend-modal-overlay");
   if (!overlay) return;
   var profile = await getRichProfileData(friendId);
-  if (!profile) return;
+  if (!profile) { console.warn("RichProfile: no profile data for", friendId); return; }
   var isOwn = isSelf || friendId === (fbUser && fbUser.uid);
 
   // header
   document.getElementById("fm-name").textContent = profile.displayName;
   document.getElementById("fm-bio").textContent = profile.bio;
-  document.getElementById("fm-friendcode").textContent = profile.friendCode ? "Código: " + profile.friendCode : "";
+  document.getElementById("fm-friendcode").innerHTML = profile.friendCode ? "C&oacute;digo: " + profile.friendCode : "";
   var avatarEl = document.getElementById("fm-avatar");
   if (profile.avatarBase64) {
     avatarEl.style.backgroundImage = "url(" + profile.avatarBase64 + ")";
@@ -691,14 +713,19 @@ async function showRichProfile(friendId, isSelf) {
   // stats cards
   var totalH = Math.floor(profile.totalMinutes / 60);
   var totalM = profile.totalMinutes % 60;
+  // per-language hours for extra card
+  var topLang = profile.languages.length > 0 ? profile.languages[0].name : "---";
+  var topLangHours = profile.languages.length > 0 ? Math.floor(profile.languages[0].minutes / 60) : 0;
   var statCards = [
     { val: profile.totalSessions, label: "sesiones" },
     { val: totalH + "h " + totalM + "m", label: "total", small: true },
     { val: profile.languages.length, label: "idiomas" },
-    { val: profile.streak.current + " d&iacute;as", label: "racha" }
+    { val: profile.streak.current + " d&iacute;a" + (profile.streak.current !== 1 ? "s" : ""), label: "racha actual" },
+    { val: profile.streak.longest + " d&iacute;a" + (profile.streak.longest !== 1 ? "s" : ""), label: "mejor racha", small: true },
+    { val: topLangHours + "h", label: topLang, small: true }
   ];
   document.getElementById("fm-stats").innerHTML = statCards.map(function(c) {
-    return '<div style="flex:1;padding:0.35rem 0.25rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:' + (c.small ? '11px' : '15px') + ';">' + c.val + '</div><div style="color:var(--ink-soft);font-size:9px;">' + c.label + '</div></div>';
+    return '<div style="flex:1;padding:0.35rem 0.2rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:' + (c.small ? '11px' : '14px') + ';">' + c.val + '</div><div style="color:var(--ink-soft);font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + c.label + '</div></div>';
   }).join("");
 
   // language bars
@@ -712,17 +739,40 @@ async function showRichProfile(friendId, isSelf) {
     }).join("");
   document.getElementById("fm-langs").innerHTML = langHtml;
 
-  // weekly chart
-  var maxVal = profile.weekly.max;
-  var chartHtml = profile.weekly.days.map(function(d) {
-    var pct = maxVal > 0 ? Math.round(d.minutes / maxVal * 100) : 0;
-    var hLabel = d.minutes > 0 ? Math.floor(d.minutes / 60) + "h" : "";
-    return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:60px;justify-content:flex-end;">' +
-      '<div style="font-size:8px;color:var(--ink-soft);margin-bottom:2px;">' + (d.minutes > 0 ? d.minutes + "m" : "") + '</div>' +
-      '<div style="width:100%;max-width:24px;height:' + pct + '%;min-height:' + (d.minutes > 0 ? "4px" : "0") + ';border-radius:3px 3px 0 0;background:var(--accent);"></div>' +
-      '<div style="font-size:8px;color:var(--ink-soft);margin-top:2px;">' + d.label + '</div></div>';
-  }).join("");
-  document.getElementById("fm-chart").innerHTML = chartHtml;
+  // weekly chart — always renders
+  console.log("showRichProfile: weekly data", profile.weekly);
+  var chartEl = document.getElementById("fm-chart");
+  if (chartEl) {
+    var daysArr = (profile.weekly && profile.weekly.days) ? profile.weekly.days : [];
+    var maxVal = Math.max((profile.weekly && profile.weekly.max) || 0, 1);
+    if (daysArr.length === 0) {
+      chartEl.innerHTML = '<p style="margin:0;font-size:11px;color:var(--ink-soft);">Sin datos esta semana</p>';
+    } else {
+      chartEl.innerHTML = daysArr.map(function(d) {
+        var raw = d.minutes / maxVal;
+        var pct = Math.max(raw * 100, raw > 0 ? 6 : 3);
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:60px;justify-content:flex-end;">' +
+          '<div style="font-size:8px;color:var(--ink-soft);margin-bottom:2px;font-family:var(--mono);">' + (d.minutes > 0 ? d.minutes + "m" : "") + '</div>' +
+          '<div style="width:100%;max-width:28px;height:' + pct + '%;min-height:3px;border-radius:3px 3px 0 0;background:var(--accent);opacity:' + (d.minutes > 0 ? "1" : "0.25") + ';"></div>' +
+          '<div style="font-size:8px;color:var(--ink-soft);margin-top:2px;">' + d.label + '</div></div>';
+      }).join("");
+    }
+  }
+  // daily activity list — always renders
+  var dailyEl = document.getElementById("fm-daily");
+  if (dailyEl) {
+    var dailyArr = profile.daily || [];
+    if (dailyArr.length === 0) {
+      dailyEl.innerHTML = '<p style="margin:0;font-size:11px;color:var(--ink-soft);">Sin actividad reciente</p>';
+    } else {
+      dailyEl.innerHTML = dailyArr.map(function(d) {
+        var h = Math.floor(d.minutes / 60);
+        var m = d.minutes % 60;
+        var timeStr = d.minutes > 0 ? (h > 0 ? h + "h " : "") + m + "m" : "—";
+        return '<div style="display:flex;justify-content:space-between;padding:0.2rem 0;border-bottom:1px solid var(--line);font-size:11px;"><span style="color:var(--ink);">' + d.label + '</span><span style="font-family:var(--mono);color:' + (d.minutes > 0 ? "var(--accent)" : "var(--ink-soft)") + ';">' + timeStr + '</span></div>';
+      }).join("");
+    }
+  }
 
   // recent sessions
   var recentHtml = profile.recent.length === 0 ? '<p style="margin:0;">Sin sesiones</p>' :
@@ -749,6 +799,7 @@ async function showRichProfile(friendId, isSelf) {
   }
 
   overlay.style.display = "flex";
+  } catch (e) { console.error("showRichProfile error:", e); }
 }
 // keep old name for backward compat
 var showFriendProfile = showRichProfile;
@@ -902,7 +953,7 @@ async function loadSocialFriendsList() {
     friends = await getFriendsWithRange(days);
   }
   if (friends.length === 0) {
-    el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">An no tienes amigos. Comparte tu cdigo o añade a alguien.</p>';
+    el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">A&uacute;n no tienes amigos. Comparte tu c&oacute;digo o a&ntilde;ade a alguien.</p>';
     return;
   }
   el.innerHTML = friends.map(function(f, i) {

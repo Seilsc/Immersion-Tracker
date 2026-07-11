@@ -142,13 +142,13 @@ function renderWeeklyChart() {
   periods.forEach(p => {
     const pct = p.secs / max;
     el.innerHTML += `
-      <div class="weekly-bar-wrap">
-        <div class="weekly-bar-val">${p.secs > 0 ? formatHM(p.secs) : ''}</div>
-        <div class="weekly-bar-track" style="flex:1;width:100%;display:flex;flex-direction:column;justify-content:flex-end;">
-          <div class="weekly-bar-fill${p.current?' current':''}" style="height:${Math.round(pct*100)}%;min-height:${p.secs>0?'3px':'0'};"></div>
-        </div>
-        <div class="weekly-bar-label" style="${p.current?'color:var(--accent);font-weight:600':''}">${p.label}</div>
-      </div>`;
+        <div class="weekly-bar-wrap">
+          <div class="weekly-bar-val">${p.secs > 0 ? formatHM(p.secs) : ''}</div>
+          <div class="weekly-bar-track" style="flex:1;width:100%;display:flex;flex-direction:column;justify-content:flex-end;">
+            <div class="weekly-bar-fill${p.current?' current':''}" style="height:${Math.round(pct*100)}%;min-height:${p.secs>0?'3px':'1px'};opacity:${p.secs>0?'1':'0.25'};"></div>
+          </div>
+          <div class="weekly-bar-label" style="${p.current?'color:var(--accent);font-weight:600':''}">${p.label}</div>
+        </div>`;
   });
 }
 
