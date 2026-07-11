@@ -723,7 +723,7 @@ async function showRichProfile(friendId, isSelf) {
     { val: "longest", label: "mejor racha", dynamic: true },
     { val: topLangHours + "h", label: topLang }
   ];
-  var statColors = ["var(--accent)", "var(--green)", "var(--blue)", "var(--purple)", "var(--gold)", "var(--accent)"];
+  var statColors = ["var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)"];
   document.getElementById("fm-stats").innerHTML = statCards.map(function(c, i) {
     var val = c.val;
     if (c.dynamic) {
