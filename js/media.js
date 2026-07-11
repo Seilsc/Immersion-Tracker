@@ -398,8 +398,7 @@ function renderShowResults(results) {
     entry.querySelector("button").onclick = () => {
       var lang = document.getElementById("show-lang").value;
       var activity = document.getElementById("show-activity").value;
-      var ep = parseInt(document.getElementById("show-ep").value) || 0;
-      addShowFromTmdb(r, lang, activity, ep);
+      addShowFromTmdb(r, lang, activity, 0);
     };
     resultsEl.appendChild(entry);
   });
