@@ -542,14 +542,14 @@ async function getRichProfileData(userId) {
   }
   streak.current = cur;
   streak.longest = longest;
-  // daily totals (last 98 days = 14 weeks) for mini heatmap
-  var dayTotals98 = buildDayTotals(allActivities, 98);
-  var daily = Object.keys(dayTotals98).reverse().map(function(k) {
+  // daily totals (last 371 days = 53 weeks) for heatmap (same as stats)
+  var dayTotals53w = buildDayTotals(allActivities, 371);
+  var daily = Object.keys(dayTotals53w).reverse().map(function(k) {
     var d = new Date(k);
     var today = new Date();
     var dayDiff = Math.round((today - d) / 86400000);
     var label = dayDiff === 0 ? "Hoy" : dayDiff === 1 ? "Ayer" : d.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" });
-    return { label: label, minutes: Math.round(dayTotals98[k]), dateStr: k };
+    return { label: label, minutes: Math.round(dayTotals53w[k]), dateStr: k };
   });
   // recent sessions
   var recent = sessions.slice(-10).reverse().map(function(ses) {
@@ -766,34 +766,34 @@ async function showRichProfile(friendId, isSelf) {
       }).join("");
     }
   }
-  // daily activity mini heatmap (same style as stats page)
+  // daily heatmap (exact same as stats page)
   var dailyEl = document.getElementById("fm-daily");
   if (dailyEl) {
     var dayMap = {};
-    (profile.daily || []).forEach(function(d) { dayMap[d.dateStr] = d.minutes; });
+    (profile.daily || []).forEach(function(d) { dayMap[d.dateStr] = d.minutes * 60; }); // convert min→sec
     if (Object.keys(dayMap).length === 0) {
       dailyEl.innerHTML = '<p style="margin:0;font-size:11px;color:var(--ink-soft);">Sin actividad reciente</p>';
     } else {
       var vals = Object.keys(dayMap).filter(function(k) { return dayMap[k] > 0; }).map(function(k) { return dayMap[k]; });
       var max = vals.length ? Math.max.apply(null, vals) : 1;
-      var WEEKS = 14;
+      var WEEKS = 53;
       var today2 = new Date(); today2.setHours(0, 0, 0, 0);
       var dow = (today2.getDay() + 6) % 7;
       var startDate = new Date(today2);
       startDate.setDate(startDate.getDate() - dow - (WEEKS - 1) * 7);
       dailyEl.innerHTML = "";
-      // month labels row
+      // month row
       var monthRow = document.createElement("div");
       monthRow.className = "heatmap-month-row";
       var spacer = document.createElement("div");
       spacer.className = "heatmap-month-spacer";
-      spacer.style.cssText = "width:24px;flex-shrink:0;";
+      spacer.style.width = "24px";
       monthRow.appendChild(spacer);
       var labelsContainer = document.createElement("div");
       labelsContainer.style.cssText = "display:flex;flex:1;gap:3px;";
       monthRow.appendChild(labelsContainer);
       dailyEl.appendChild(monthRow);
-      // body with day labels + columns
+      // body
       var body = document.createElement("div");
       body.className = "heatmap-body";
       var dayLabels = document.createElement("div");
@@ -807,6 +807,7 @@ async function showRichProfile(friendId, isSelf) {
       columns.className = "heatmap-columns";
       body.appendChild(columns);
       dailyEl.appendChild(body);
+      // columns
       var lastMonth = -1;
       for (var w = 0; w < WEEKS; w++) {
         var weekStart = new Date(startDate);
@@ -814,7 +815,7 @@ async function showRichProfile(friendId, isSelf) {
         var m = weekStart.getMonth();
         var labelEl = document.createElement("div");
         labelEl.className = "heatmap-month-label";
-        labelEl.style.cssText = "flex:1;";
+        labelEl.style.flex = "1";
         labelEl.textContent = m !== lastMonth ? weekStart.toLocaleDateString("es", { month: "short" }) : "";
         if (m !== lastMonth) lastMonth = m;
         labelsContainer.appendChild(labelEl);
@@ -831,18 +832,37 @@ async function showRichProfile(friendId, isSelf) {
           cell.dataset.level = level;
           if (isFuture) cell.dataset.future = "";
           if (date.toDateString() === today2.toDateString()) cell.dataset.today = "";
+          cell.dataset.date = date.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
+          cell.dataset.time = secs ? formatHM(secs) : "";
           col.appendChild(cell);
         }
         columns.appendChild(col);
       }
-      // legend
-      var legend = document.createElement("div");
-      legend.className = "hm-legend";
-      legend.style.cssText = "justify-content:flex-end;margin-top:4px;";
-      legend.innerHTML = '<span style="font-size:9px;">Menos</span>' +
-        [0,1,2,3,4].map(function(l) { return '<div class="hm-legend-cell" data-level="' + l + '"></div>'; }).join("") +
-        '<span style="font-size:9px;">M&aacute;s</span>';
-      dailyEl.appendChild(legend);
+      // tooltip support
+      var tip = document.getElementById("hm-tooltip");
+      if (tip) {
+        var tipDate = tip.querySelector(".hm-tooltip-date");
+        var tipTime = tip.querySelector(".hm-tooltip-time");
+        dailyEl.querySelectorAll(".heatmap-cell").forEach(function(cell) {
+          cell.addEventListener("mouseenter", function(e) {
+            var d = cell.dataset.date;
+            var t = cell.dataset.time;
+            tipDate.textContent = d;
+            tipTime.textContent = t ? t : "Sin actividad";
+            tipTime.style.color = t ? "" : "rgba(255,255,255,0.4)";
+            tip.classList.add("visible");
+            tip.style.left = e.clientX + "px";
+            tip.style.top = e.clientY + "px";
+          });
+          cell.addEventListener("mousemove", function(e) {
+            tip.style.left = e.clientX + "px";
+            tip.style.top = e.clientY + "px";
+          });
+          cell.addEventListener("mouseleave", function() {
+            tip.classList.remove("visible");
+          });
+        });
+      }
     }
   }
 
