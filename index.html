@@ -1007,7 +1007,7 @@
 
   <!-- LANGUAGE SELECTOR -->
   <div class="lang-bar">
-    <label for="lang-pills">Idioma:</label>
+    <span style="font-size:12px;font-weight:600;color:var(--ink-soft);">Idioma:</span>
     <div id="lang-pills" role="group" aria-label="Idioma"></div>
     <button class="lang-pill add-lang" id="add-lang-btn">+ Añadir idioma</button>
   </div>
@@ -1211,7 +1211,7 @@
 
     <!-- STATS LANGUAGE FILTER -->
     <div class="lang-bar" id="stats-lang-bar" style="margin-bottom:1.25rem;">
-      <label for="stats-lang-pills">Idioma</label>
+      <span style="font-size:12px;font-weight:600;color:var(--ink-soft);">Idioma</span>
       <div id="stats-lang-pills" style="display:flex;gap:0.5rem;flex-wrap:wrap;" role="group" aria-label="Idioma"></div>
     </div>
 
@@ -1315,7 +1315,7 @@
           <option value="">Todas las categorías</option>
         </select>
         <button class="secondary" id="export-csv">↓ CSV</button>
-        <input type="file" id="import-json-file" accept=".json" style="display:none;" />
+        <input type="file" id="import-json-file" accept=".json" aria-label="Importar copia de seguridad" style="display:none;" />
       </div>
       <p class="status-msg" id="import-status"></p>
       <div id="history-list"></div>
