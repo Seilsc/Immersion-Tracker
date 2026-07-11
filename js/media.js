@@ -359,6 +359,47 @@ async function getTmdbSeasonEpisodes(showId, seasonNum) {
   return (data.episodes || []).map(e => e.runtime).filter(Boolean);
 }
 
+// TMDB Add Dialog
+let _pendingTmdbItem = null;
+let _pendingTmdbType = null; // "show" or "movie"
+
+function populateTmdbDialog() {
+  var sel = document.getElementById("tmdb-add-lang");
+  if (sel && !sel.options.length) {
+    var langs = document.getElementById("show-lang");
+    if (langs) {
+      Array.from(langs.options).forEach(function(o) {
+        sel.appendChild(new Option(o.text, o.value));
+      });
+    }
+  }
+  var actSel = document.getElementById("tmdb-add-activity");
+  if (actSel && !actSel.options.length) {
+    (window.MEDIA_ACTIVITIES || window.SHOW_ACTIVITIES || []).forEach(function(a) {
+      actSel.appendChild(new Option(a.label + (a.manualTime ? " ⏱" : ""), a.value));
+    });
+  }
+}
+
+document.getElementById("tmdb-add-confirm").addEventListener("click", function() {
+  if (!_pendingTmdbItem) return;
+  var lang = document.getElementById("tmdb-add-lang").value;
+  var activity = document.getElementById("tmdb-add-activity").value;
+  var ep = parseInt(document.getElementById("tmdb-add-ep").value) || 0;
+  document.getElementById("tmdb-add-overlay").style.display = "none";
+  if (_pendingTmdbType === "show") {
+    addShowFromTmdb(_pendingTmdbItem, lang, activity, ep);
+  } else {
+    addMovieFromTmdb(_pendingTmdbItem, lang, activity);
+  }
+  _pendingTmdbItem = null;
+});
+
+document.getElementById("tmdb-add-cancel").addEventListener("click", function() {
+  document.getElementById("tmdb-add-overlay").style.display = "none";
+  _pendingTmdbItem = null;
+});
+
 // Shows
 document.getElementById("show-search-btn").addEventListener("click", async () => {
   const input = document.getElementById("show-search");
@@ -385,12 +426,20 @@ function renderShowResults(results) {
     const entry = document.createElement("div");
     entry.className = "result-entry";
     entry.innerHTML = `<div class="result-main"><span class="result-title">${r.name}${r.original_name && r.original_name !== r.name ? ` (${r.original_name})` : ""}</span><span class="result-sub">${r.first_air_date ? r.first_air_date.slice(0,4) : "sin fecha"}</span></div><button>Añadir</button>`;
-    entry.querySelector("button").onclick = () => addShowFromTmdb(r);
+    entry.querySelector("button").onclick = () => {
+      _pendingTmdbItem = r;
+      _pendingTmdbType = "show";
+      populateTmdbDialog();
+      document.getElementById("tmdb-add-title").textContent = "Añadir serie: " + r.name;
+      document.getElementById("tmdb-add-ep-field").style.display = "block";
+      document.getElementById("tmdb-add-ep").value = "0";
+      document.getElementById("tmdb-add-overlay").style.display = "flex";
+    };
     resultsEl.appendChild(entry);
   });
 }
 
-async function addShowFromTmdb(result) {
+async function addShowFromTmdb(result, lang, activity, ep) {
   const statusEl = document.getElementById("show-status");
   setStatus(statusEl, `Obteniendo duración de episodios de "${result.name}"...`, "pending");
   try {
@@ -403,13 +452,12 @@ async function addShowFromTmdb(result) {
     }
     let epDuration = runtimes.length > 0 ? Math.round(runtimes.reduce((a,b)=>a+b,0)/runtimes.length) : 0;
     if (epDuration <= 0) epDuration = 24;
-    const lang = document.getElementById("show-lang").value || currentLang;
-    state.shows.push({ name: details.name, epDuration, episodesWatched: 0, tmdbId: details.id, url: `https://www.themoviedb.org/tv/${details.id}`, lang, activity: "Freeflow Listening", manualMinutes: {}, ts: Date.now() });
+    state.shows.push({ name: details.name, epDuration, episodesWatched: ep, tmdbId: details.id, url: `https://www.themoviedb.org/tv/${details.id}`, lang: lang || document.getElementById("show-lang").value || currentLang, activity: activity || "Freeflow Listening", manualMinutes: {}, ts: Date.now() });
     saveState();
     renderAll();
     document.getElementById("show-search").value = "";
     document.getElementById("show-results").innerHTML = "";
-    setStatus(statusEl, `"${details.name}" añadido (${epDuration} min/episodio).`, "ok");
+    setStatus(statusEl, `"${details.name}" añadido (${epDuration} min/episodio, ${ep} ep.).`, "ok");
   } catch (err) { setStatus(statusEl, `Error: ${err.message}`, "err"); }
 }
 
@@ -503,20 +551,26 @@ function renderMovieResults(results) {
     const entry = document.createElement("div");
     entry.className = "result-entry";
     entry.innerHTML = `<div class="result-main"><span class="result-title">${r.title}${r.original_title && r.original_title !== r.title ? ` (${r.original_title})` : ""}</span><span class="result-sub">${r.release_date ? r.release_date.slice(0,4) : "sin fecha"}</span></div><button>Añadir</button>`;
-    entry.querySelector("button").onclick = () => addMovieFromTmdb(r);
+    entry.querySelector("button").onclick = () => {
+      _pendingTmdbItem = r;
+      _pendingTmdbType = "movie";
+      populateTmdbDialog();
+      document.getElementById("tmdb-add-title").textContent = "Añadir película: " + r.title;
+      document.getElementById("tmdb-add-ep-field").style.display = "none";
+      document.getElementById("tmdb-add-overlay").style.display = "flex";
+    };
     resultsEl.appendChild(entry);
   });
 }
 
-async function addMovieFromTmdb(result) {
+async function addMovieFromTmdb(result, lang, activity) {
   const statusEl = document.getElementById("movie-status");
   setStatus(statusEl, `Obteniendo duración de "${result.title}"...`, "pending");
   try {
     const details = await getTmdbMovieDetails(result.id);
     const runtime = details.runtime || 0;
     if (runtime <= 0) { setStatus(statusEl, `TMDB no tiene la duración de "${result.title}".`, "err"); return; }
-    const lang = document.getElementById("movie-lang").value || currentLang;
-    state.movies.push({ title: details.title, year: details.release_date?.slice(0,4) || "", seconds: runtime*60, tmdbId: details.id, url: `https://www.themoviedb.org/movie/${details.id}`, lang, activity: "Freeflow Listening", ts: Date.now() });
+    state.movies.push({ title: details.title, year: details.release_date?.slice(0,4) || "", seconds: runtime*60, tmdbId: details.id, url: `https://www.themoviedb.org/movie/${details.id}`, lang: lang || document.getElementById("movie-lang").value || currentLang, activity: activity || "Freeflow Listening", ts: Date.now() });
     saveState();
     renderAll();
     document.getElementById("movie-search").value = "";
