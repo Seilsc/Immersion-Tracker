@@ -646,32 +646,102 @@ function closeProfileDropdown() {
   if (backdrop) backdrop.style.display = "none";
 }
 
-/* ---------- PHOTO UPLOAD ---------- */
+/* ---------- PHOTO CROP ---------- */
+
+var cropFile = null;
+var cropOffsetX = 0, cropOffsetY = 0;
+var cropZoom = 1;
+var cropDragging = false, cropStartX, cropStartY, cropOrigX, cropOrigY;
+
+function openCropModal(file) {
+  cropFile = file;
+  var overlay = document.getElementById("crop-modal-overlay");
+  var img = document.getElementById("crop-image");
+  if (!overlay || !img) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    img.src = e.target.result;
+    img.onload = function() {
+      cropOffsetX = 0; cropOffsetY = 0; cropZoom = 1;
+      document.getElementById("crop-zoom").value = 1;
+      applyCropTransform();
+      overlay.style.display = "flex";
+    };
+  };
+  reader.readAsDataURL(file);
+}
+
+function applyCropTransform() {
+  var img = document.getElementById("crop-image");
+  if (!img) return;
+  var container = document.getElementById("crop-container");
+  var cw = container.clientWidth, ch = container.clientHeight;
+  var iw = img.naturalWidth, ih = img.naturalHeight;
+  // fit image to container at zoom 1
+  var scale = Math.min(cw / iw, ch / ih) * cropZoom;
+  var w = iw * scale, h = ih * scale;
+  img.style.width = w + "px";
+  img.style.height = h + "px";
+  img.style.left = "50%";
+  img.style.top = "50%";
+  img.style.marginLeft = (-w / 2 + cropOffsetX) + "px";
+  img.style.marginTop = (-h / 2 + cropOffsetY) + "px";
+}
+
+function cropSave() {
+  var img = document.getElementById("crop-image");
+  var container = document.getElementById("crop-container");
+  if (!img || !container) return;
+  var cw = container.clientWidth, ch = container.clientHeight;
+  var iw = img.naturalWidth, ih = img.naturalHeight;
+  var scale = Math.min(cw / iw, ch / ih) * cropZoom;
+  var displayW = iw * scale, displayH = ih * scale;
+  // calculate visible portion in natural image coordinates
+  var visLeft = (cw / 2 - displayW / 2 + cropOffsetX) / scale;
+  var visTop = (ch / 2 - displayH / 2 + cropOffsetY) / scale;
+  var visW = cw / scale, visH = ch / scale;
+  // clamp
+  visLeft = Math.max(0, Math.min(iw - visW, visLeft));
+  visTop = Math.max(0, Math.min(ih - visH, visTop));
+  var size = Math.min(visW, visH);
+  var cx = visLeft + visW / 2, cy = visTop + visH / 2;
+  var cropX = cx - size / 2, cropY = cy - size / 2;
+  cropX = Math.max(0, Math.min(iw - size, cropX));
+  cropY = Math.max(0, Math.min(ih - size, cropY));
+  // draw to canvas
+  var canvas = document.createElement("canvas");
+  canvas.width = 200;
+  canvas.height = 200;
+  var ctx = canvas.getContext("2d");
+  ctx.drawImage(img, cropX, cropY, size, size, 0, 0, 200, 200);
+  var dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+  // hide modal
+  document.getElementById("crop-modal-overlay").style.display = "none";
+  // upload cropped result
+  handlePhotoUploadDataUrl(dataUrl);
+}
+
+function handlePhotoUploadDataUrl(dataUrl) {
+  if (!fbUser || !dataUrl) return;
+  setSyncStatus("Subiendo foto...");
+  // update navbar avatar immediately
+  var navImg = document.getElementById("profile-img");
+  var navIcon = document.getElementById("profile-avatar");
+  if (navImg) { navImg.src = dataUrl; navImg.style.display = "block"; }
+  if (navIcon) navIcon.style.display = "none";
+  firebase.firestore().collection("users").doc(fbUser.uid).update({ avatarBase64: dataUrl }).then(function() {
+    updateProfileUI();
+    setSyncStatus("Foto actualizada");
+    setTimeout(function() { setSyncStatus(""); }, 2000);
+  }).catch(function(e) {
+    console.warn("Photo save failed", e);
+    setSyncStatus("Error al guardar foto");
+  });
+}
 
 function handlePhotoUpload(file) {
   if (!fbUser || !file) return;
-  setSyncStatus("Subiendo foto...");
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var dataUrl = e.target.result;
-    // update navbar avatar immediately
-    var navImg = document.getElementById("profile-img");
-    var navIcon = document.getElementById("profile-avatar");
-    if (navImg) { navImg.src = dataUrl; navImg.style.display = "block"; }
-    if (navIcon) navIcon.style.display = "none";
-    firebase.firestore().collection("users").doc(fbUser.uid).update({ avatarBase64: dataUrl }).then(function() {
-      updateProfileUI();
-      setSyncStatus("Foto actualizada");
-      setTimeout(function() { setSyncStatus(""); }, 2000);
-    }).catch(function(e) {
-      console.warn("Photo save failed", e);
-      setSyncStatus("Error al guardar foto");
-    });
-  };
-  reader.onerror = function() {
-    setSyncStatus("Error al leer el archivo");
-  };
-  reader.readAsDataURL(file);
+  openCropModal(file);
 }
 
 /* ---------- SOCIAL PAGE ---------- */
@@ -887,11 +957,43 @@ saveState = function() {
   function setupPhotoInput(id) {
     var el = document.getElementById(id);
     if (el) el.addEventListener("change", function() {
-      if (this.files && this.files[0]) handlePhotoUpload(this.files[0]);
+      if (this.files && this.files[0]) openCropModal(this.files[0]);
     });
   }
   setupPhotoInput("prof-photo-input");
   setupPhotoInput("prof-edit-photo-input");
+
+  // crop modal events
+  var cropContainer = document.getElementById("crop-container");
+  if (cropContainer) {
+    cropContainer.addEventListener("mousedown", function(e) {
+      cropDragging = true;
+      cropStartX = e.clientX;
+      cropStartY = e.clientY;
+      cropOrigX = cropOffsetX;
+      cropOrigY = cropOffsetY;
+      cropContainer.style.cursor = "grabbing";
+    });
+    document.addEventListener("mousemove", function(e) {
+      if (!cropDragging) return;
+      cropOffsetX = cropOrigX + (e.clientX - cropStartX);
+      cropOffsetY = cropOrigY + (e.clientY - cropStartY);
+      applyCropTransform();
+    });
+    document.addEventListener("mouseup", function() {
+      cropDragging = false;
+      if (cropContainer) cropContainer.style.cursor = "grab";
+    });
+  }
+  var cropZoomInput = document.getElementById("crop-zoom");
+  if (cropZoomInput) cropZoomInput.addEventListener("input", function() {
+    cropZoom = parseFloat(this.value);
+    applyCropTransform();
+  });
+  document.getElementById("crop-save").addEventListener("click", cropSave);
+  document.getElementById("crop-cancel").addEventListener("click", function() {
+    document.getElementById("crop-modal-overlay").style.display = "none";
+  });
 
   /* ---------- SOCIAL PAGE EVENTS ---------- */
 
