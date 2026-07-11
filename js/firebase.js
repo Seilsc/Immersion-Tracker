@@ -34,7 +34,7 @@ function initFirebase() {
         } else if (doc.data().privacy) {
           // sync privacy from cloud to localStorage on sign-in
           localStorage.setItem("privacy", JSON.stringify(doc.data().privacy));
-          syncPrivacyToggles();
+          if (typeof window.syncPrivacyToggles === "function") window.syncPrivacyToggles();
         }
         loadCloudState();
         startAutoSave();
@@ -1315,6 +1315,7 @@ saveState = function() {
       if (el) el.checked = !!s[k];
     });
   }
+  window.syncPrivacyToggles = syncPrivacyToggles;
   function savePrivacySettings(settings) {
     localStorage.setItem("privacy", JSON.stringify(settings));
     if (fbUser) {
