@@ -275,12 +275,10 @@ function stopRealTimeSync() {
 
 function loadGravatarBig(el) {
   if (!el || !fbUser) return;
-  var initial = (fbUser.displayName || fbUser.email)[0].toUpperCase();
-  el.textContent = initial;
   var gravBig = new Image();
   gravBig.src = getGravatarUrl(fbUser.email, 96);
   gravBig.onload = function() {
-    if (gravBig.width > 10) { el.textContent = ""; el.style.backgroundImage = "url(" + gravBig.src + ")"; el.style.backgroundSize = "cover"; }
+    if (gravBig.width > 10) { el.style.backgroundImage = "url(" + gravBig.src + ")"; el.style.backgroundSize = "cover"; }
   };
 }
 
@@ -542,7 +540,6 @@ function updateProfileUI() {
         if (editNameInput) editNameInput.value = d.displayName || fbUser.displayName || "";
         if (editBio) editBio.value = d.bio || "";
         if (editAvatar && d.avatarUrl) {
-          editAvatar.textContent = "";
           editAvatar.style.backgroundImage = "url(" + d.avatarUrl + ")";
           editAvatar.style.backgroundSize = "cover";
         } else if (editAvatar) {
@@ -554,11 +551,10 @@ function updateProfileUI() {
     }).catch(function() {
       if (editAvatar) loadGravatarBig(editAvatar);
     });
-    // also load avatar for dropdown user card
+    // also load avatar for dropdown user card (never set textContent — preserves file input child)
     if (avatarBig) {
       firebase.firestore().collection("users").doc(fbUser.uid).get().then(function(doc) {
         if (doc.exists && doc.data().avatarUrl) {
-          avatarBig.textContent = "";
           avatarBig.style.backgroundImage = "url(" + doc.data().avatarUrl + ")";
           avatarBig.style.backgroundSize = "cover";
         } else {
