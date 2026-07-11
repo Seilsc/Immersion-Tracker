@@ -542,14 +542,14 @@ async function getRichProfileData(userId) {
   }
   streak.current = cur;
   streak.longest = longest;
-  // daily totals (last 14 days) from all activities
-  var dayTotals14 = buildDayTotals(allActivities, 14);
-  var daily = Object.keys(dayTotals14).reverse().map(function(k) {
+  // daily totals (last 98 days = 14 weeks) for mini heatmap
+  var dayTotals98 = buildDayTotals(allActivities, 98);
+  var daily = Object.keys(dayTotals98).reverse().map(function(k) {
     var d = new Date(k);
     var today = new Date();
     var dayDiff = Math.round((today - d) / 86400000);
     var label = dayDiff === 0 ? "Hoy" : dayDiff === 1 ? "Ayer" : d.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" });
-    return { label: label, minutes: Math.round(dayTotals14[k]), dateStr: k };
+    return { label: label, minutes: Math.round(dayTotals98[k]), dateStr: k };
   });
   // recent sessions
   var recent = sessions.slice(-10).reverse().map(function(ses) {
@@ -758,19 +758,52 @@ async function showRichProfile(friendId, isSelf) {
       }).join("");
     }
   }
-  // daily activity list — always renders
+  // daily activity mini heatmap
   var dailyEl = document.getElementById("fm-daily");
   if (dailyEl) {
-    var dailyArr = profile.daily || [];
-    if (dailyArr.length === 0) {
+    var dayMap = {};
+    (profile.daily || []).forEach(function(d) { dayMap[d.dateStr] = d.minutes; });
+    if (Object.keys(dayMap).length === 0) {
       dailyEl.innerHTML = '<p style="margin:0;font-size:11px;color:var(--ink-soft);">Sin actividad reciente</p>';
     } else {
-      dailyEl.innerHTML = dailyArr.map(function(d) {
-        var h = Math.floor(d.minutes / 60);
-        var m = d.minutes % 60;
-        var timeStr = d.minutes > 0 ? (h > 0 ? h + "h " : "") + m + "m" : "—";
-        return '<div style="display:flex;justify-content:space-between;padding:0.2rem 0;border-bottom:1px solid var(--line);font-size:11px;"><span style="color:var(--ink);">' + d.label + '</span><span style="font-family:var(--mono);color:' + (d.minutes > 0 ? "var(--accent)" : "var(--ink-soft)") + ';">' + timeStr + '</span></div>';
-      }).join("");
+      var vals = Object.keys(dayMap).filter(function(k) { return dayMap[k] > 0; }).map(function(k) { return dayMap[k]; });
+      var max = vals.length ? Math.max.apply(null, vals) : 1;
+      var WEEKS = 14, CELL = 10, GAP = 2;
+      var today2 = new Date(); today2.setHours(0, 0, 0, 0);
+      var dow = (today2.getDay() + 6) % 7;
+      var startDate = new Date(today2);
+      startDate.setDate(startDate.getDate() - dow - (WEEKS - 1) * 7);
+      var html = '<div style="display:flex;flex-direction:column;gap:' + GAP + 'px;">';
+      // month labels row
+      html += '<div style="display:flex;padding-left:' + (CELL + GAP) + 'px;gap:' + GAP + 'px;font-size:8px;color:var(--ink-soft);font-family:var(--mono);">';
+      var lastMonth = -1;
+      for (var w = 0; w < WEEKS; w++) {
+        var ws = new Date(startDate);
+        ws.setDate(ws.getDate() + w * 7);
+        var m = ws.getMonth();
+        html += '<div style="flex:1;text-align:center;">' + (m !== lastMonth ? ws.toLocaleDateString("es", { month: "short" }) : "") + '</div>';
+        if (m !== lastMonth) lastMonth = m;
+      }
+      html += '</div>';
+      // day rows (Mon–Sun)
+      var dayNames = ["L", "", "X", "", "V", "", ""];
+      for (var row = 0; row < 7; row++) {
+        html += '<div style="display:flex;align-items:center;gap:' + GAP + 'px;">';
+        html += '<div style="width:' + CELL + 'px;font-size:7px;color:var(--ink-soft);text-align:center;font-family:var(--mono);">' + dayNames[row] + '</div>';
+        for (var w2 = 0; w2 < WEEKS; w2++) {
+          var d2 = new Date(startDate);
+          d2.setDate(d2.getDate() + w2 * 7 + row);
+          var secs = dayMap[d2.toDateString()] || 0;
+          var isFuture = d2 > today2;
+          var level = isFuture ? 0 : secs === 0 ? 0 : secs < max * 0.25 ? 1 : secs < max * 0.5 ? 2 : secs < max * 0.75 ? 3 : 4;
+          var extra = isFuture ? ' data-future=""' : "";
+          if (d2.toDateString() === today2.toDateString()) extra += ' data-today=""';
+          html += '<div style="width:' + CELL + 'px;height:' + CELL + 'px;border-radius:2px;border:1px solid transparent;" class="heatmap-cell" data-level="' + level + '"' + extra + '></div>';
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+      dailyEl.innerHTML = html;
     }
   }
 
