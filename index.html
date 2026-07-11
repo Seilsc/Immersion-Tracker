@@ -983,28 +983,6 @@
   </div>
 </div>
 
-<div id="tmdb-add-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
-  <div id="tmdb-add-dialog" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;max-width:400px;width:90%;box-shadow:0 16px 64px rgba(0,0,0,0.2);">
-    <p style="margin:0 0 0.5rem;font-weight:600;" id="tmdb-add-title">Añadir</p>
-    <div class="field" style="margin-bottom:0.8rem;">
-      <label for="tmdb-add-lang">Idioma</label>
-      <select id="tmdb-add-lang"></select>
-    </div>
-    <div class="field" style="margin-bottom:0.8rem;">
-      <label for="tmdb-add-activity">Actividad</label>
-      <select id="tmdb-add-activity"></select>
-    </div>
-    <div class="field" style="margin-bottom:1rem;display:none;" id="tmdb-add-ep-field">
-      <label for="tmdb-add-ep">Episodios vistos</label>
-      <input type="number" id="tmdb-add-ep" min="0" value="0" />
-    </div>
-    <div style="display:flex;gap:0.5rem;">
-      <button id="tmdb-add-confirm" style="flex:1;">Añadir</button>
-      <button id="tmdb-add-cancel" class="secondary" style="flex:1;">Cancelar</button>
-    </div>
-  </div>
-</div>
-
 <button id="theme-toggle" title="Cambiar tema" aria-label="Cambiar entre modo claro y oscuro">
   <!-- icon swapped by JS -->
   <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1192,6 +1170,14 @@
           <label for="show-lang">Idioma</label>
           <select id="show-lang"></select>
         </div>
+        <div class="field">
+          <label for="show-activity">Actividad</label>
+          <select id="show-activity"></select>
+        </div>
+        <div class="field" style="max-width:90px;">
+          <label for="show-ep">Episodios</label>
+          <input type="number" id="show-ep" min="0" value="0" style="width:60px;" />
+        </div>
         <div class="field" style="flex: 2;">
           <label for="show-search">Buscar serie o anime</label>
           <input type="text" id="show-search" placeholder="p. ej. Attack on Titan" />
@@ -1214,6 +1200,10 @@
         <div class="field">
           <label for="movie-lang">Idioma</label>
           <select id="movie-lang"></select>
+        </div>
+        <div class="field">
+          <label for="movie-activity">Actividad</label>
+          <select id="movie-activity"></select>
         </div>
         <div class="field" style="flex: 2;">
           <label for="movie-search">Buscar película</label>

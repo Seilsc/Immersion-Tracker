@@ -10,7 +10,7 @@ function renderLangPills() {
     pill.onclick = () => { currentLang = lang; renderAll(); };
     container.appendChild(pill);
   });
-  ["act-lang","yt-lang","show-lang","movie-lang","filter-lang","tmdb-add-lang"].forEach(id => {
+  ["act-lang","yt-lang","show-lang","movie-lang","filter-lang"].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const prev = el.value;

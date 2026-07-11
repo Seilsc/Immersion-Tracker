@@ -359,45 +359,14 @@ async function getTmdbSeasonEpisodes(showId, seasonNum) {
   return (data.episodes || []).map(e => e.runtime).filter(Boolean);
 }
 
-// TMDB Add Dialog
-let _pendingTmdbItem = null;
-let _pendingTmdbType = null; // "show" or "movie"
-
-function populateTmdbDialog() {
-  var sel = document.getElementById("tmdb-add-lang");
-  if (sel && !sel.options.length) {
-    var langs = document.getElementById("show-lang");
-    if (langs) {
-      Array.from(langs.options).forEach(function(o) {
-        sel.appendChild(new Option(o.text, o.value));
-      });
-    }
-  }
-  var actSel = document.getElementById("tmdb-add-activity");
-  if (actSel && !actSel.options.length) {
-    (window.MEDIA_ACTIVITIES || window.SHOW_ACTIVITIES || []).forEach(function(a) {
-      actSel.appendChild(new Option(a.label + (a.manualTime ? " ⏱" : ""), a.value));
+// Populate activity selects for shows/movies
+["show-activity","movie-activity"].forEach(function(id) {
+  var sel = document.getElementById(id);
+  if (sel) {
+    (MEDIA_ACTIVITIES || []).forEach(function(a) {
+      sel.appendChild(new Option(a.label + (a.manualTime ? " ⏱" : ""), a.value));
     });
   }
-}
-
-document.getElementById("tmdb-add-confirm").addEventListener("click", function() {
-  if (!_pendingTmdbItem) return;
-  var lang = document.getElementById("tmdb-add-lang").value;
-  var activity = document.getElementById("tmdb-add-activity").value;
-  var ep = parseInt(document.getElementById("tmdb-add-ep").value) || 0;
-  document.getElementById("tmdb-add-overlay").style.display = "none";
-  if (_pendingTmdbType === "show") {
-    addShowFromTmdb(_pendingTmdbItem, lang, activity, ep);
-  } else {
-    addMovieFromTmdb(_pendingTmdbItem, lang, activity);
-  }
-  _pendingTmdbItem = null;
-});
-
-document.getElementById("tmdb-add-cancel").addEventListener("click", function() {
-  document.getElementById("tmdb-add-overlay").style.display = "none";
-  _pendingTmdbItem = null;
 });
 
 // Shows
@@ -427,13 +396,10 @@ function renderShowResults(results) {
     entry.className = "result-entry";
     entry.innerHTML = `<div class="result-main"><span class="result-title">${r.name}${r.original_name && r.original_name !== r.name ? ` (${r.original_name})` : ""}</span><span class="result-sub">${r.first_air_date ? r.first_air_date.slice(0,4) : "sin fecha"}</span></div><button>Añadir</button>`;
     entry.querySelector("button").onclick = () => {
-      _pendingTmdbItem = r;
-      _pendingTmdbType = "show";
-      populateTmdbDialog();
-      document.getElementById("tmdb-add-title").textContent = "Añadir serie: " + r.name;
-      document.getElementById("tmdb-add-ep-field").style.display = "block";
-      document.getElementById("tmdb-add-ep").value = "0";
-      document.getElementById("tmdb-add-overlay").style.display = "flex";
+      var lang = document.getElementById("show-lang").value;
+      var activity = document.getElementById("show-activity").value;
+      var ep = parseInt(document.getElementById("show-ep").value) || 0;
+      addShowFromTmdb(r, lang, activity, ep);
     };
     resultsEl.appendChild(entry);
   });
@@ -452,12 +418,12 @@ async function addShowFromTmdb(result, lang, activity, ep) {
     }
     let epDuration = runtimes.length > 0 ? Math.round(runtimes.reduce((a,b)=>a+b,0)/runtimes.length) : 0;
     if (epDuration <= 0) epDuration = 24;
-    state.shows.push({ name: details.name, epDuration, episodesWatched: ep, tmdbId: details.id, url: `https://www.themoviedb.org/tv/${details.id}`, lang: lang || document.getElementById("show-lang").value || currentLang, activity: activity || "Freeflow Listening", manualMinutes: {}, ts: Date.now() });
+    state.shows.push({ name: details.name, epDuration, episodesWatched: ep || 0, tmdbId: details.id, url: `https://www.themoviedb.org/tv/${details.id}`, lang: lang || document.getElementById("show-lang").value || currentLang, activity: activity || "Freeflow Listening", manualMinutes: {}, ts: Date.now() });
     saveState();
     renderAll();
     document.getElementById("show-search").value = "";
     document.getElementById("show-results").innerHTML = "";
-    setStatus(statusEl, `"${details.name}" añadido (${epDuration} min/episodio, ${ep} ep.).`, "ok");
+    setStatus(statusEl, `"${details.name}" añadido (${epDuration} min/episodio${ep ? ", " + ep + " ep." : ""}).`, "ok");
   } catch (err) { setStatus(statusEl, `Error: ${err.message}`, "err"); }
 }
 
@@ -552,12 +518,9 @@ function renderMovieResults(results) {
     entry.className = "result-entry";
     entry.innerHTML = `<div class="result-main"><span class="result-title">${r.title}${r.original_title && r.original_title !== r.title ? ` (${r.original_title})` : ""}</span><span class="result-sub">${r.release_date ? r.release_date.slice(0,4) : "sin fecha"}</span></div><button>Añadir</button>`;
     entry.querySelector("button").onclick = () => {
-      _pendingTmdbItem = r;
-      _pendingTmdbType = "movie";
-      populateTmdbDialog();
-      document.getElementById("tmdb-add-title").textContent = "Añadir película: " + r.title;
-      document.getElementById("tmdb-add-ep-field").style.display = "none";
-      document.getElementById("tmdb-add-overlay").style.display = "flex";
+      var lang = document.getElementById("movie-lang").value;
+      var activity = document.getElementById("movie-activity").value;
+      addMovieFromTmdb(r, lang, activity);
     };
     resultsEl.appendChild(entry);
   });
