@@ -695,17 +695,25 @@ function cropSave() {
   var cw = container.clientWidth, ch = container.clientHeight;
   var iw = img.naturalWidth, ih = img.naturalHeight;
   var scale = Math.min(cw / iw, ch / ih) * cropZoom;
-  var displayW = iw * scale, displayH = ih * scale;
-  // calculate visible portion in natural image coordinates
-  var visLeft = (cw / 2 - displayW / 2 + cropOffsetX) / scale;
-  var visTop = (ch / 2 - displayH / 2 + cropOffsetY) / scale;
-  var visW = cw / scale, visH = ch / scale;
-  // clamp
-  visLeft = Math.max(0, Math.min(iw - visW, visLeft));
-  visTop = Math.max(0, Math.min(ih - visH, visTop));
-  var size = Math.min(visW, visH);
-  var cx = visLeft + visW / 2, cy = visTop + visH / 2;
-  var cropX = cx - size / 2, cropY = cy - size / 2;
+  var w = iw * scale, h = ih * scale;
+  // image top-left in container coords
+  var cx = (cw - w) / 2 + cropOffsetX;
+  var cy = (ch - h) / 2 + cropOffsetY;
+  // visible portion in display coords
+  var dl = Math.max(0, cx);
+  var dt = Math.max(0, cy);
+  var dr = Math.min(cw, cx + w);
+  var db = Math.min(ch, cy + h);
+  // corresponding image pixel coords
+  var pl = (dl - cx) / scale;
+  var pt = (dt - cy) / scale;
+  var pr = (dr - cx) / scale;
+  var pb = (db - cy) / scale;
+  var pw = pr - pl, ph = pb - pt;
+  // center square
+  var size = Math.min(pw, ph);
+  var cropX = pl + (pw - size) / 2;
+  var cropY = pt + (ph - size) / 2;
   cropX = Math.max(0, Math.min(iw - size, cropX));
   cropY = Math.max(0, Math.min(ih - size, cropY));
   // draw to canvas
