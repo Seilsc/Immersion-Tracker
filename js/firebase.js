@@ -1298,6 +1298,7 @@ saveState = function() {
     }
   }
   // init toggles from saved settings
+  var privacySettings = loadPrivacySettings();
   syncPrivacyToggles();
   privacyKeys.forEach(function(k) {
     var el = document.getElementById("privacy-" + k);
