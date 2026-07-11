@@ -28,8 +28,13 @@ function initFirebase() {
             email: user.email,
             displayName: user.displayName || user.email.split("@")[0],
             friendCode: code,
+            privacy: {},
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
+        } else if (doc.data().privacy) {
+          // sync privacy from cloud to localStorage on sign-in
+          localStorage.setItem("privacy", JSON.stringify(doc.data().privacy));
+          syncPrivacyToggles();
         }
         loadCloudState();
         startAutoSave();
@@ -464,6 +469,10 @@ async function getRichProfileData(userId) {
   var userDoc = await firebase.firestore().collection("users").doc(userId).get();
   if (!userDoc.exists) return null;
   var ud = userDoc.data();
+  var isViewerOwner = fbUser.uid === userId;
+  // load privacy settings (only apply when viewing someone else)
+  var privacy = {};
+  if (!isViewerOwner && ud.privacy) privacy = ud.privacy;
   var stateDoc = await firebase.firestore().collection("users").doc(userId).collection("data").doc("state").get();
   var s = stateDoc.exists ? stateDoc.data().state : null;
   var sessions = s ? s.sessions || [] : [];
@@ -555,7 +564,7 @@ async function getRichProfileData(userId) {
   var recent = sessions.slice(-10).reverse().map(function(ses) {
     return { note: ses.note || ses.cat || "Sesi&oacute;n", seconds: ses.seconds || 0, lang: ses.lang || "", ts: ses.ts || 0 };
   });
-  return {
+  var result = {
     displayName: ud.displayName || "Usuario",
     bio: ud.bio || "",
     avatarBase64: ud.avatarBase64 || ud.avatarUrl || "",
@@ -568,6 +577,14 @@ async function getRichProfileData(userId) {
     streak: streak,
     recent: recent
   };
+  // apply privacy filter (hide sections when viewing someone else)
+  if (privacy.total) { result.totalMinutes = 0; result.totalSessions = 0; }
+  if (privacy.languages) { result.languages = []; }
+  if (privacy.weekly) { result.weekly = { days: [], max: 0 }; }
+  if (privacy.daily) { result.daily = []; }
+  if (privacy.recent) { result.recent = []; }
+  if (privacy.streak) { result.streak = { current: 0, longest: 0 }; }
+  return result;
 }
 
 // keep old getFriendProfile as alias for backward compat
@@ -1257,6 +1274,38 @@ saveState = function() {
       updateProfileUI();
     } catch (e) {
       if (status) { status.textContent = e.message; status.style.color = "#d32f2f"; }
+    }
+  });
+
+  // privacy settings toggles
+  var privacyKeys = ["total", "languages", "weekly", "daily", "recent", "streak"];
+  function loadPrivacySettings() {
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem("privacy") || "{}"); } catch(e) {}
+    return saved;
+  }
+  function syncPrivacyToggles() {
+    var s = loadPrivacySettings();
+    privacyKeys.forEach(function(k) {
+      var el = document.getElementById("privacy-" + k);
+      if (el) el.checked = !!s[k];
+    });
+  }
+  function savePrivacySettings(settings) {
+    localStorage.setItem("privacy", JSON.stringify(settings));
+    if (fbUser) {
+      firebase.firestore().collection("users").doc(fbUser.uid).update({ privacy: settings }).catch(function(){});
+    }
+  }
+  // init toggles from saved settings
+  syncPrivacyToggles();
+  privacyKeys.forEach(function(k) {
+    var el = document.getElementById("privacy-" + k);
+    if (el) {
+      el.addEventListener("change", function() {
+        privacySettings[k] = this.checked;
+        savePrivacySettings(privacySettings);
+      });
     }
   });
 
