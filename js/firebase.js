@@ -652,6 +652,22 @@ async function showFriendProfile(friendId) {
   });
   document.getElementById("fm-recent").innerHTML = recentHtml ? '<p style="font-weight:500;margin:0 0 0.2rem;">ltimas sesiones</p>' + recentHtml : '<p style="color:var(--ink-soft);margin:0;">Sin sesiones recientes</p>';
 
+  // remove friend button (not for self)
+  var removeBtn = document.getElementById("fm-remove");
+  if (removeBtn) {
+    if (friendId === fbUser.uid) {
+      removeBtn.style.display = "none";
+    } else {
+      removeBtn.style.display = "";
+      removeBtn.onclick = function() {
+        if (confirm("Eliminar amigo?")) {
+          removeFriend(friendId);
+          overlay.style.display = "none";
+        }
+      };
+    }
+  }
+
   overlay.style.display = "flex";
 }
 
@@ -726,7 +742,7 @@ async function loadSocialFriendsList() {
     var hours = Math.floor(f.totalMinutes / 60);
     var mins = f.totalMinutes % 60;
     var isSelf = f.isSelf;
-    var nameLabel = f.displayName + (isSelf ? ' <span style="color:var(--ink-soft);font-weight:400;font-size:11px;">(t)</span>' : '');
+    var nameLabel = f.displayName + (isSelf ? ' <span style="color:var(--ink-soft);font-weight:400;font-size:11px;">(t&uacute;)</span>' : '');
     var bg = isSelf ? 'var(--accent)' : 'var(--surface2)';
     var color = isSelf ? '#fff' : 'var(--ink-soft)';
     var rowBg = isSelf ? 'var(--accent-soft)' : '';
@@ -734,11 +750,8 @@ async function loadSocialFriendsList() {
       '<span style="width:22px;height:22px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:' + color + ';' + (isSelf ? '' : 'cursor:pointer;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + (i + 1) + '</span>' +
       '<span style="flex:1;' + (isSelf ? '' : 'cursor:pointer;color:var(--accent);font-weight:500;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + nameLabel + '</span>' +
       '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;text-align:right;min-width:4.5rem;">' + hours + 'h ' + mins + 'm</span>' +
-      (isSelf ? '' : '<button class="s-friend-remove" data-id="' + f.id + '" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:13px;padding:0 4px;" title="Eliminar amigo">&times;</button>') + '</div>';
+      '</div>';
   }).join("");
-  el.querySelectorAll(".s-friend-remove").forEach(function(btn) {
-    btn.addEventListener("click", function(e) { e.stopPropagation(); removeFriend(this.dataset.id); });
-  });
   el.querySelectorAll(".s-friend-profile").forEach(function(el2) {
     el2.addEventListener("click", function() { showFriendProfile(this.dataset.id); });
   });
