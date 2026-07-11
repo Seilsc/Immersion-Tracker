@@ -859,6 +859,7 @@
         </div>
       </div>
 
+      <button id="prof-view-profile-btn" style="width:100%;margin-bottom:0.3rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:12px;">Ver mi perfil</button>
       <button id="prof-edit-btn" style="width:100%;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--accent);cursor:pointer;font-size:12px;">Editar perfil</button>
 
       <hr style="border:none;border-top:1px solid var(--line);margin:0.5rem 0;" />
@@ -884,6 +885,19 @@
       <div class="prof-field">
         <label>Biografía</label>
         <textarea id="prof-edit-bio" rows="2" style="width:100%;resize:none;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:12px;font-family:var(--sans);" placeholder="Cuéntanos algo sobre ti..."></textarea>
+      </div>
+      <div class="prof-field">
+        <label>Color de acento</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="prof-accent-btn" data-color="#b3502e" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#b3502e;cursor:pointer;" title="Terracota"></button>
+          <button class="prof-accent-btn" data-color="#2f5d4f" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#2f5d4f;cursor:pointer;" title="Verde"></button>
+          <button class="prof-accent-btn" data-color="#2d4f8a" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#2d4f8a;cursor:pointer;" title="Azul"></button>
+          <button class="prof-accent-btn" data-color="#5c3d8a" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#5c3d8a;cursor:pointer;" title="Prpura"></button>
+          <button class="prof-accent-btn" data-color="#8a6d2d" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#8a6d2d;cursor:pointer;" title="Dorado"></button>
+          <button class="prof-accent-btn" data-color="#c0392b" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#c0392b;cursor:pointer;" title="Rojo"></button>
+          <button class="prof-accent-btn" data-color="#2980b9" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#2980b9;cursor:pointer;" title="Celeste"></button>
+          <button class="prof-accent-btn" data-color="#8e44ad" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#8e44ad;cursor:pointer;" title="Morado"></button>
+        </div>
       </div>
       <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
         <button id="prof-edit-save" style="flex:1;padding:0.4rem;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;">Guardar cambios</button>
@@ -914,15 +928,35 @@
   </div>
 </div>
 
-<!-- FRIEND PROFILE MODAL -->
-<div id="friend-modal-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
-  <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;max-width:360px;width:90%;box-shadow:0 16px 64px rgba(0,0,0,0.2);">
-    <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.8rem;">
-      <div id="fm-avatar" style="width:40px;height:40px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:18px;flex-shrink:0;"></div>
-      <div><div id="fm-name" style="font-weight:600;"></div><div id="fm-total" style="font-size:12px;color:var(--ink-soft);"></div><div id="fm-bio" style="font-size:11px;color:var(--ink-soft);margin-top:2px;"></div></div>
+<!-- RICH PROFILE MODAL -->
+<div id="friend-modal-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+  <div id="fm-scroll" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;max-width:480px;width:92%;max-height:90vh;overflow-y:auto;box-shadow:0 16px 64px rgba(0,0,0,0.25);">
+    <!-- header -->
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+      <div id="fm-avatar" style="width:56px;height:56px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:22px;flex-shrink:0;overflow:hidden;background-size:cover;background-position:center;"></div>
+      <div style="flex:1;min-width:0;">
+        <div id="fm-name" style="font-weight:600;font-size:16px;"></div>
+        <div id="fm-bio" style="font-size:12px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+        <div id="fm-friendcode" style="font-size:10px;color:var(--ink-soft);margin-top:2px;font-family:var(--mono);"></div>
+      </div>
     </div>
-    <div id="fm-langs" style="margin-bottom:0.8rem;"></div>
-    <div id="fm-recent" style="max-height:120px;overflow-y:auto;font-size:12px;color:var(--ink-soft);"></div>
+    <!-- stats cards -->
+    <div id="fm-stats" style="display:flex;gap:0.5rem;margin-bottom:1rem;"></div>
+    <!-- languages -->
+    <div id="fm-langs-section" style="margin-bottom:1rem;">
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;">Idiomas</div>
+      <div id="fm-langs"></div>
+    </div>
+    <!-- weekly chart -->
+    <div id="fm-chart-section" style="margin-bottom:1rem;">
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;">Esta semana</div>
+      <div id="fm-chart" style="display:flex;align-items:flex-end;gap:4px;height:60px;"></div>
+    </div>
+    <!-- recent -->
+    <div id="fm-recent-section" style="margin-bottom:0.8rem;">
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.3rem;">ltimas sesiones</div>
+      <div id="fm-recent" style="max-height:100px;overflow-y:auto;font-size:12px;color:var(--ink-soft);"></div>
+    </div>
     <button id="fm-remove" style="width:100%;margin-top:0.4rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:none;color:var(--accent);cursor:pointer;font-size:12px;">Eliminar amigo</button>
     <button id="fm-close" style="width:100%;margin-top:0.4rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:13px;">Cerrar</button>
   </div>

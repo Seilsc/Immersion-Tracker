@@ -273,6 +273,19 @@ function stopRealTimeSync() {
   if (snapshotUnsub) { snapshotUnsub(); snapshotUnsub = null; }
 }
 
+function applyAccentColor(color) {
+  if (!color) return;
+  document.documentElement.style.setProperty("--accent", color);
+  document.documentElement.style.setProperty("--accent-soft", color + "22");
+  localStorage.setItem("immersion-accent", color);
+}
+
+// load saved accent color
+(function() {
+  var saved = localStorage.getItem("immersion-accent");
+  if (saved) applyAccentColor(saved);
+})();
+
 function loadGravatarBig(el) {
   if (!el || !fbUser) return;
   var gravBig = new Image();
@@ -446,32 +459,98 @@ function totalFromState(s) {
   return Math.round(t);
 }
 
-async function getFriendProfile(friendId) {
+async function getRichProfileData(userId) {
   if (!fbUser) return null;
-  var fUser = await firebase.firestore().collection("users").doc(friendId).get();
-  if (!fUser.exists) return null;
-  var fData = await firebase.firestore().collection("users").doc(friendId).collection("data").doc("state").get();
-  var sessions = (fData.exists && fData.data().state) ? fData.data().state.sessions || [] : [];
-  var langTotal = {};
-  var langSessions = {};
-  sessions.forEach(function(s) {
-    var lang = s.lang || "otro";
-    var mins = (s.seconds || 0) / 60;
-    if (!langTotal[lang]) { langTotal[lang] = 0; langSessions[lang] = 0; }
-    langTotal[lang] += mins;
-    langSessions[lang]++;
+  var userDoc = await firebase.firestore().collection("users").doc(userId).get();
+  if (!userDoc.exists) return null;
+  var ud = userDoc.data();
+  var stateDoc = await firebase.firestore().collection("users").doc(userId).collection("data").doc("state").get();
+  var s = stateDoc.exists ? stateDoc.data().state : null;
+  var sessions = s ? s.sessions || [] : [];
+  // per-language
+  var langTotals = {}, langSessions = {};
+  sessions.forEach(function(ses) {
+    var l = ses.lang || "otro";
+    var m = (ses.seconds || 0) / 60;
+    if (!langTotals[l]) { langTotals[l] = 0; langSessions[l] = 0; }
+    langTotals[l] += m;
+    langSessions[l]++;
   });
-  var recent = sessions.slice(-5).reverse();
+  var langArr = Object.keys(langTotals).map(function(l) {
+    return { name: l, minutes: Math.round(langTotals[l]), sessions: langSessions[l] };
+  }).sort(function(a, b) { return b.minutes - a.minutes; });
+  var maxLangMin = langArr.length > 0 ? langArr[0].minutes : 1;
+  langArr.forEach(function(l) { l.pct = Math.round(l.minutes / maxLangMin * 100); });
+  // weekly chart (last 7 days)
+  var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  var actSnap = await firebase.firestore().collection("users").doc(userId).collection("activity").where("clientTs", ">=", weekAgo).get();
+  var dayTotals = {};
+  for (var d = 0; d < 7; d++) {
+    var t = new Date(Date.now() - d * 86400000);
+    dayTotals[t.toDateString()] = 0;
+  }
+  actSnap.forEach(function(a) {
+    var ts = a.data().clientTs || 0;
+    var key = new Date(ts).toDateString();
+    if (dayTotals[key] !== undefined) dayTotals[key] += (a.data().seconds || 0) / 60;
+  });
+  var days = Object.keys(dayTotals).reverse().map(function(k) {
+    return { label: new Date(k).toLocaleDateString("es", { weekday: "short" }), minutes: Math.round(dayTotals[k]) };
+  });
+  var maxDay = Math.max(1, days.reduce(function(mx, d) { return Math.max(mx, d.minutes); }, 0));
+  // streak
+  var streak = { current: 0, longest: 0 };
+  var datesWithActivity = {};
+  actSnap.forEach(function(a) {
+    var ts = a.data().clientTs || 0;
+    datesWithActivity[new Date(ts).toDateString()] = true;
+  });
+  var allDates = Object.keys(datesWithActivity).sort().reverse();
+  var cur = 0, longest = 0;
+  var todayStr = new Date().toDateString();
+  var yesterdayStr = new Date(Date.now() - 86400000).toDateString();
+  if (allDates.length > 0 && (allDates[0] === todayStr || allDates[0] === yesterdayStr)) {
+    for (var si = 0; si < allDates.length; si++) {
+      var expected = new Date();
+      expected.setDate(expected.getDate() - si);
+      if (allDates[si] === expected.toDateString()) { cur++; }
+      else { break; }
+    }
+  }
+  // calculate longest streak
+  var sortedDates = Object.keys(datesWithActivity).sort();
+  var run = 0;
+  for (var si2 = 0; si2 < sortedDates.length; si2++) {
+    if (si2 === 0) { run = 1; continue; }
+    var prev = new Date(sortedDates[si2 - 1]);
+    var curr = new Date(sortedDates[si2]);
+    var diff = (curr - prev) / 86400000;
+    if (diff === 1) { run++; }
+    else { run = 1; }
+    if (run > longest) longest = run;
+  }
+  streak.current = cur;
+  streak.longest = longest;
+  // recent sessions
+  var recent = sessions.slice(-10).reverse().map(function(ses) {
+    return { note: ses.note || ses.cat || "Sesin", seconds: ses.seconds || 0, lang: ses.lang || "", ts: ses.ts || 0 };
+  });
   return {
-    displayName: fUser.data().displayName || "Amigo",
-    friendCode: fUser.data().friendCode || "",
-    bio: fUser.data().bio || "",
-    langTotal: langTotal,
-    langSessions: langSessions,
-    recent: recent,
-    totalMinutes: totalFromState(fData.exists ? fData.data().state : null)
+    displayName: ud.displayName || "Usuario",
+    bio: ud.bio || "",
+    avatarBase64: ud.avatarBase64 || ud.avatarUrl || "",
+    friendCode: ud.friendCode || "",
+    totalSessions: sessions.length,
+    totalMinutes: totalFromState(s),
+    languages: langArr,
+    weekly: { days: days, max: maxDay },
+    streak: streak,
+    recent: recent
   };
 }
+
+// keep old getFriendProfile as alias for backward compat
+var getFriendProfile = getRichProfileData;
 
 /* ---------- ACTIVITY FEED ---------- */
 
@@ -550,6 +629,13 @@ function updateProfileUI() {
         } else if (editAvatar) {
           loadGravatarBig(editAvatar);
         }
+        // highlight selected accent color
+        if (d.accentColor) {
+          applyAccentColor(d.accentColor);
+          document.querySelectorAll(".prof-accent-btn").forEach(function(b) {
+            b.style.borderColor = b.dataset.color === d.accentColor ? "var(--accent)" : "transparent";
+          });
+        }
       } else {
         if (editAvatar) loadGravatarBig(editAvatar);
       }
@@ -581,40 +667,75 @@ function updateProfileUI() {
   }
 }
 
-/* ---------- FRIEND PROFILE MODAL ---------- */
+/* ---------- RICH PROFILE MODAL ---------- */
 
-async function showFriendProfile(friendId) {
+async function showRichProfile(friendId, isSelf) {
   var overlay = document.getElementById("friend-modal-overlay");
   if (!overlay) return;
-  var profile = await getFriendProfile(friendId);
+  var profile = await getRichProfileData(friendId);
   if (!profile) return;
-  document.getElementById("fm-name").textContent = profile.displayName;
-  document.getElementById("fm-total").textContent = "Total: " + Math.floor(profile.totalMinutes / 60) + "h " + profile.totalMinutes % 60 + "m";
-  var bioEl = document.getElementById("fm-bio");
-  if (bioEl) bioEl.textContent = profile.bio ? '"' + profile.bio + '"' : "";
-  var avatarEl = document.getElementById("fm-avatar");
-  avatarEl.textContent = profile.displayName[0].toUpperCase();
+  var isOwn = isSelf || friendId === (fbUser && fbUser.uid);
 
-  // language breakdown
-  var langHtml = "";
-  Object.keys(profile.langTotal).sort(function(a, b) { return profile.langTotal[b] - profile.langTotal[a]; }).forEach(function(lang) {
-    var mins = Math.round(profile.langTotal[lang]);
-    langHtml += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:0.15rem 0;"><span>' + lang + '</span><span style="font-family:var(--mono);color:var(--ink-soft);">' + Math.floor(mins / 60) + 'h ' + mins % 60 + 'm (' + profile.langSessions[lang] + ' ses)</span></div>';
-  });
-  document.getElementById("fm-langs").innerHTML = langHtml || '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Sin datos</p>';
+  // header
+  document.getElementById("fm-name").textContent = profile.displayName;
+  document.getElementById("fm-bio").textContent = profile.bio;
+  document.getElementById("fm-friendcode").textContent = profile.friendCode ? "Código: " + profile.friendCode : "";
+  var avatarEl = document.getElementById("fm-avatar");
+  if (profile.avatarBase64) {
+    avatarEl.style.backgroundImage = "url(" + profile.avatarBase64 + ")";
+  } else {
+    avatarEl.textContent = profile.displayName[0].toUpperCase();
+  }
+  if (avatarEl) avatarEl.style.backgroundColor = "";
+
+  // stats cards
+  var totalH = Math.floor(profile.totalMinutes / 60);
+  var totalM = profile.totalMinutes % 60;
+  var statCards = [
+    { val: profile.totalSessions, label: "sesiones" },
+    { val: totalH + "h " + totalM + "m", label: "total", small: true },
+    { val: profile.languages.length, label: "idiomas" },
+    { val: profile.streak.current + " d&iacute;as", label: "racha" }
+  ];
+  document.getElementById("fm-stats").innerHTML = statCards.map(function(c) {
+    return '<div style="flex:1;padding:0.35rem 0.25rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:' + (c.small ? '11px' : '15px') + ';">' + c.val + '</div><div style="color:var(--ink-soft);font-size:9px;">' + c.label + '</div></div>';
+  }).join("");
+
+  // language bars
+  var langColors = ["var(--accent)", "var(--green)", "var(--blue)", "var(--purple)", "var(--gold)"];
+  var langHtml = profile.languages.length === 0 ? '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Sin datos</p>' :
+    profile.languages.map(function(l, i) {
+      var c = langColors[i % langColors.length];
+      return '<div style="margin-bottom:0.35rem;">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>' + l.name + '</span><span style="font-family:var(--mono);color:var(--ink-soft);">' + Math.floor(l.minutes / 60) + 'h ' + l.minutes % 60 + 'm (' + l.sessions + ' ses)</span></div>' +
+        '<div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden;"><div style="height:100%;width:' + l.pct + '%;border-radius:3px;background:' + c + ';transition:width 0.3s;"></div></div></div>';
+    }).join("");
+  document.getElementById("fm-langs").innerHTML = langHtml;
+
+  // weekly chart
+  var maxVal = profile.weekly.max;
+  var chartHtml = profile.weekly.days.map(function(d) {
+    var pct = maxVal > 0 ? Math.round(d.minutes / maxVal * 100) : 0;
+    var hLabel = d.minutes > 0 ? Math.floor(d.minutes / 60) + "h" : "";
+    return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:60px;justify-content:flex-end;">' +
+      '<div style="font-size:8px;color:var(--ink-soft);margin-bottom:2px;">' + (d.minutes > 0 ? d.minutes + "m" : "") + '</div>' +
+      '<div style="width:100%;max-width:24px;height:' + pct + '%;min-height:' + (d.minutes > 0 ? "4px" : "0") + ';border-radius:3px 3px 0 0;background:var(--accent);"></div>' +
+      '<div style="font-size:8px;color:var(--ink-soft);margin-top:2px;">' + d.label + '</div></div>';
+  }).join("");
+  document.getElementById("fm-chart").innerHTML = chartHtml;
 
   // recent sessions
-  var recentHtml = "";
-  profile.recent.forEach(function(s) {
-    var mins = Math.round((s.seconds || 0) / 60);
-    recentHtml += '<div style="padding:0.15rem 0;">' + (s.note || s.cat || "Sesin") + ' — ' + mins + 'm</div>';
-  });
-  document.getElementById("fm-recent").innerHTML = recentHtml ? '<p style="font-weight:500;margin:0 0 0.2rem;">ltimas sesiones</p>' + recentHtml : '<p style="color:var(--ink-soft);margin:0;">Sin sesiones recientes</p>';
+  var recentHtml = profile.recent.length === 0 ? '<p style="margin:0;">Sin sesiones</p>' :
+    profile.recent.slice(0, 8).map(function(s) {
+      var mins = Math.round((s.seconds || 0) / 60);
+      return '<div style="display:flex;justify-content:space-between;padding:0.2rem 0;border-bottom:1px solid var(--line);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">' + s.note + '</span><span style="font-family:var(--mono);color:var(--ink-soft);margin-left:0.5rem;">' + mins + 'm</span></div>';
+    }).join("");
+  document.getElementById("fm-recent").innerHTML = recentHtml;
 
-  // remove friend button (not for self)
+  // remove button (only for friends, not self)
   var removeBtn = document.getElementById("fm-remove");
   if (removeBtn) {
-    if (friendId === fbUser.uid) {
+    if (isOwn) {
       removeBtn.style.display = "none";
     } else {
       removeBtn.style.display = "";
@@ -629,6 +750,8 @@ async function showFriendProfile(friendId) {
 
   overlay.style.display = "flex";
 }
+// keep old name for backward compat
+var showFriendProfile = showRichProfile;
 
 function toggleProfileDropdown() {
   var dd = document.getElementById("profile-dropdown");
@@ -912,6 +1035,12 @@ saveState = function() {
     fbSignInWithGoogle();
   });
 
+  var viewProfileBtn = document.getElementById("prof-view-profile-btn");
+  if (viewProfileBtn) viewProfileBtn.addEventListener("click", function() {
+    closeProfileDropdown();
+    showRichProfile(fbUser.uid, true);
+  });
+
   var editBtn = document.getElementById("prof-edit-btn");
   if (editBtn) editBtn.addEventListener("click", function() {
     var loggedIn = document.getElementById("prof-logged-in");
@@ -931,6 +1060,16 @@ saveState = function() {
     if (editView) editView.style.display = "none";
   });
 
+  // accent color picker
+  document.querySelectorAll(".prof-accent-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var color = this.dataset.color;
+      document.querySelectorAll(".prof-accent-btn").forEach(function(b) { b.style.borderColor = "transparent"; });
+      this.style.borderColor = "var(--accent)";
+      window._pendingAccent = color;
+    });
+  });
+
   var editSave = document.getElementById("prof-edit-save");
   if (editSave) editSave.addEventListener("click", async function() {
     var nameInput = document.getElementById("prof-edit-name-input");
@@ -941,6 +1080,11 @@ saveState = function() {
       if (name) await fbUpdateDisplayName(name);
       var bio = bioInput ? bioInput.value.trim() : "";
       if (bio !== undefined) await fbUpdateBio(bio);
+      if (window._pendingAccent) {
+        await firebase.firestore().collection("users").doc(fbUser.uid).update({ accentColor: window._pendingAccent });
+        applyAccentColor(window._pendingAccent);
+        window._pendingAccent = null;
+      }
       if (status) { status.textContent = " Perfil actualizado"; status.style.color = "var(--green)"; }
       setTimeout(function() {
         var loggedIn = document.getElementById("prof-logged-in");
