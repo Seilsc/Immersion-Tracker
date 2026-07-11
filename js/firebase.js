@@ -784,7 +784,7 @@ async function showRichProfile(friendId, isSelf) {
       startDate.setDate(startDate.getDate() - dow - (WEEKS - 1) * 7);
       dailyEl.innerHTML = "";
       var inner = document.createElement("div");
-      inner.style.cssText = "display:inline-flex;flex-direction:column;text-align:left;";
+      inner.style.cssText = "display:inline-flex;flex-direction:column;min-width:100%;";
       dailyEl.appendChild(inner);
       // month row
       var monthRow = document.createElement("div");
