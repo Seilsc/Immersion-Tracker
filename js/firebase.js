@@ -648,13 +648,11 @@ function closeProfileDropdown() {
 
 /* ---------- PHOTO CROP ---------- */
 
-var cropFile = null;
 var cropOffsetX = 0, cropOffsetY = 0;
 var cropZoom = 1;
 var cropDragging = false, cropStartX, cropStartY, cropOrigX, cropOrigY;
 
 function openCropModal(file) {
-  cropFile = file;
   var overlay = document.getElementById("crop-modal-overlay");
   var img = document.getElementById("crop-image");
   if (!overlay || !img) return;
@@ -673,59 +671,61 @@ function openCropModal(file) {
 
 function applyCropTransform() {
   var img = document.getElementById("crop-image");
-  if (!img) return;
-  var container = document.getElementById("crop-container");
-  var cw = container.clientWidth, ch = container.clientHeight;
-  var iw = img.naturalWidth, ih = img.naturalHeight;
-  // fit image to container at zoom 1
-  var scale = Math.min(cw / iw, ch / ih) * cropZoom;
-  var w = iw * scale, h = ih * scale;
-  img.style.width = w + "px";
-  img.style.height = h + "px";
-  img.style.left = "50%";
-  img.style.top = "50%";
-  img.style.marginLeft = (-w / 2 + cropOffsetX) + "px";
-  img.style.marginTop = (-h / 2 + cropOffsetY) + "px";
-}
-
-function cropSave() {
-  var img = document.getElementById("crop-image");
   var container = document.getElementById("crop-container");
   if (!img || !container) return;
   var cw = container.clientWidth, ch = container.clientHeight;
   var iw = img.naturalWidth, ih = img.naturalHeight;
-  var scale = Math.min(cw / iw, ch / ih) * cropZoom;
-  var w = iw * scale, h = ih * scale;
-  // image top-left in container coords
-  var cx = (cw - w) / 2 + cropOffsetX;
-  var cy = (ch - h) / 2 + cropOffsetY;
-  // visible portion in display coords
-  var dl = Math.max(0, cx);
-  var dt = Math.max(0, cy);
-  var dr = Math.min(cw, cx + w);
-  var db = Math.min(ch, cy + h);
-  // corresponding image pixel coords
-  var pl = (dl - cx) / scale;
-  var pt = (dt - cy) / scale;
-  var pr = (dr - cx) / scale;
-  var pb = (db - cy) / scale;
-  var pw = pr - pl, ph = pb - pt;
+  var fit = Math.min(cw / iw, ch / ih);
+  var s = fit * cropZoom;
+  img.style.width = (iw * s) + "px";
+  img.style.height = (ih * s) + "px";
+  img.style.left = ((cw - iw * s) / 2 + cropOffsetX) + "px";
+  img.style.top = ((ch - ih * s) / 2 + cropOffsetY) + "px";
+}
+
+function getCropRect() {
+  var img = document.getElementById("crop-image");
+  var container = document.getElementById("crop-container");
+  if (!img || !container) return null;
+  var cw = container.clientWidth, ch = container.clientHeight;
+  var iw = img.naturalWidth, ih = img.naturalHeight;
+  var fit = Math.min(cw / iw, ch / ih);
+  var s = fit * cropZoom;
+  var w = iw * s, h = ih * s;
+  // image bounds in container coords
+  var ix = (cw - w) / 2 + cropOffsetX;
+  var iy = (ch - h) / 2 + cropOffsetY;
+  // visible overlap
+  var vx = Math.max(0, ix), vy = Math.max(0, iy);
+  var vx2 = Math.min(cw, ix + w), vy2 = Math.min(ch, iy + h);
+  var vw = vx2 - vx, vh = vy2 - vy;
+  if (vw <= 0 || vh <= 0) return null;
+  // image pixel coords of visible area
+  var px = (vx - ix) / s, py = (vy - iy) / s;
+  var px2 = (vx2 - ix) / s, py2 = (vy2 - iy) / s;
+  var pw = px2 - px, ph = py2 - py;
   // center square
   var size = Math.min(pw, ph);
-  var cropX = pl + (pw - size) / 2;
-  var cropY = pt + (ph - size) / 2;
-  cropX = Math.max(0, Math.min(iw - size, cropX));
-  cropY = Math.max(0, Math.min(ih - size, cropY));
-  // draw to canvas
+  var cx = px + (pw - size) / 2;
+  var cy = py + (ph - size) / 2;
+  return {
+    x: Math.max(0, Math.min(iw - size, cx)),
+    y: Math.max(0, Math.min(ih - size, cy)),
+    size: size
+  };
+}
+
+function cropSave() {
+  var img = document.getElementById("crop-image");
+  var r = getCropRect();
+  if (!img || !r) return;
   var canvas = document.createElement("canvas");
   canvas.width = 200;
   canvas.height = 200;
   var ctx = canvas.getContext("2d");
-  ctx.drawImage(img, cropX, cropY, size, size, 0, 0, 200, 200);
+  ctx.drawImage(img, r.x, r.y, r.size, r.size, 0, 0, 200, 200);
   var dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-  // hide modal
   document.getElementById("crop-modal-overlay").style.display = "none";
-  // upload cropped result
   handlePhotoUploadDataUrl(dataUrl);
 }
 
@@ -975,6 +975,7 @@ saveState = function() {
   var cropContainer = document.getElementById("crop-container");
   if (cropContainer) {
     cropContainer.addEventListener("mousedown", function(e) {
+      if (e.button !== 0) return;
       cropDragging = true;
       cropStartX = e.clientX;
       cropStartY = e.clientY;
@@ -992,6 +993,15 @@ saveState = function() {
       cropDragging = false;
       if (cropContainer) cropContainer.style.cursor = "grab";
     });
+    // wheel zoom
+    cropContainer.addEventListener("wheel", function(e) {
+      e.preventDefault();
+      var z = cropZoom - e.deltaY * 0.002;
+      z = Math.max(0.3, Math.min(4, z));
+      cropZoom = z;
+      document.getElementById("crop-zoom").value = z;
+      applyCropTransform();
+    }, { passive: false });
   }
   var cropZoomInput = document.getElementById("crop-zoom");
   if (cropZoomInput) cropZoomInput.addEventListener("input", function() {
