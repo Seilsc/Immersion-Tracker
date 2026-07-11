@@ -34,7 +34,6 @@ function initFirebase() {
         loadCloudState();
         startAutoSave();
         startRealTimeSync();
-        loadPendingRequests();
       } else {
         stopAutoSave();
         stopRealTimeSync();
@@ -134,6 +133,11 @@ async function fbUpdateDisplayName(newName) {
   await fbUser.updateProfile({ displayName: newName });
   await firebase.firestore().collection("users").doc(fbUser.uid).update({ displayName: newName });
   updateProfileUI();
+}
+
+async function fbUpdateBio(bio) {
+  if (!fbUser) return;
+  await firebase.firestore().collection("users").doc(fbUser.uid).update({ bio: bio.slice(0, 500) });
 }
 
 async function fbResetPassword() {
@@ -354,25 +358,6 @@ async function sendFriendRequest(code) {
   });
 }
 
-async function loadPendingRequests() {
-  if (!fbUser) return;
-  var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friendRequests").where("status", "==", "pending").get();
-  var section = document.getElementById("prof-requests-section");
-  var list = document.getElementById("prof-requests-list");
-  if (!section || !list) return;
-  if (snap.empty) { section.style.display = "none"; return; }
-  section.style.display = "block";
-  var html = "";
-  snap.forEach(function(doc) {
-    var d = doc.data();
-    html += '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0;font-size:12px;border-bottom:1px solid var(--line);">' +
-      '<span style="flex:1;">' + (d.fromName || "Alguien") + '</span>' +
-      '<button class="req-accept" data-id="' + doc.id + '" data-from="' + d.from + '" style="font-size:11px;padding:0.2rem 0.5rem;border:none;border-radius:4px;background:var(--green);color:#fff;cursor:pointer;">Aceptar</button>' +
-      '<button class="req-decline" data-id="' + doc.id + '" style="font-size:11px;padding:0.2rem 0.5rem;border:none;border-radius:4px;background:var(--line);color:var(--ink-soft);cursor:pointer;">Rechazar</button></div>';
-  });
-  list.innerHTML = html;
-}
-
 async function acceptFriendRequest(reqId, fromUid) {
   if (!fbUser) return;
   // accept: update request status, add bidirectional friendship
@@ -388,14 +373,14 @@ async function acceptFriendRequest(reqId, fromUid) {
     friendCode: myDoc.exists ? myDoc.data().friendCode || "" : "",
     addedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-  loadPendingRequests();
-  loadFriendsList();
+  loadSocialPendingRequests();
+  loadSocialFriendsList();
 }
 
 async function declineFriendRequest(reqId) {
   if (!fbUser) return;
   await firebase.firestore().collection("users").doc(fbUser.uid).collection("friendRequests").doc(reqId).delete();
-  loadPendingRequests();
+  loadSocialPendingRequests();
 }
 
 /* ---------- FRIENDS ---------- */
@@ -409,7 +394,7 @@ async function removeFriend(friendId) {
   if (!fbUser || !confirm("Eliminar amigo?")) return;
   await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").doc(friendId).delete();
   await firebase.firestore().collection("users").doc(friendId).collection("friends").doc(fbUser.uid).delete();
-  loadFriendsList();
+  loadSocialFriendsList();
 }
 
 async function getFriends() {
@@ -488,6 +473,7 @@ async function getFriendProfile(friendId) {
   return {
     displayName: fUser.data().displayName || "Amigo",
     friendCode: fUser.data().friendCode || "",
+    bio: fUser.data().bio || "",
     langTotal: langTotal,
     langSessions: langSessions,
     recent: recent,
@@ -530,8 +516,14 @@ function updateProfileUI() {
     var nameEl = document.getElementById("prof-user-name");
     var emailEl = document.getElementById("prof-user-email");
     var avatarBig = document.getElementById("prof-user-avatar");
-    var codeEl = document.getElementById("prof-friend-code");
+    var bioInput = document.getElementById("prof-bio-input");
     var verifyBanner = document.getElementById("prof-verify-banner");
+
+    // social page visibility
+    var sLoggedOut = document.getElementById("social-logged-out");
+    var sLoggedIn = document.getElementById("social-logged-in");
+    if (sLoggedOut) sLoggedOut.style.display = "none";
+    if (sLoggedIn) sLoggedIn.style.display = "block";
 
     var ql = document.getElementById("quick-logout");
     if (ql) ql.style.display = "block";
@@ -546,6 +538,14 @@ function updateProfileUI() {
     if (loggedIn) loggedIn.style.display = "block";
     if (nameEl) nameEl.textContent = fbUser.displayName || fbUser.email.split("@")[0];
     if (emailEl) emailEl.textContent = fbUser.email;
+
+    // load bio
+    if (bioInput) {
+      firebase.firestore().collection("users").doc(fbUser.uid).get().then(function(doc) {
+        if (doc.exists && doc.data().bio !== undefined) bioInput.value = doc.data().bio;
+        else bioInput.value = "";
+      });
+    }
 
     // email verification banner
     if (verifyBanner) {
@@ -573,7 +573,6 @@ function updateProfileUI() {
         avatarBig.style.backgroundImage = "url(" + url + ")";
         avatarBig.style.backgroundSize = "cover";
       }).catch(function() {
-        // fallback to gravatar
         var initial = (fbUser.displayName || fbUser.email)[0].toUpperCase();
         avatarBig.textContent = initial;
         var gravBig = new Image();
@@ -583,9 +582,6 @@ function updateProfileUI() {
         };
       });
     }
-    getMyFriendCode().then(function(c) { if (codeEl) codeEl.textContent = c || "---"; });
-    loadFriendsList();
-    loadActivityFeed();
 
     var statsEl = document.getElementById("prof-stats");
     if (statsEl) {
@@ -602,70 +598,11 @@ function updateProfileUI() {
     if (img) { img.style.display = "none"; img.src = ""; }
     if (loggedOut) loggedOut.style.display = "block";
     if (loggedIn) loggedIn.style.display = "none";
+    var sLoggedOut = document.getElementById("social-logged-out");
+    var sLoggedIn = document.getElementById("social-logged-in");
+    if (sLoggedOut) sLoggedOut.style.display = "block";
+    if (sLoggedIn) sLoggedIn.style.display = "none";
   }
-}
-
-var weeklyMode = false;
-
-async function loadFriendsList() {
-  var el = document.getElementById("prof-friends-list");
-  if (!el) return;
-  showLoading("prof-friends-list", true);
-  var friends = weeklyMode ? await getFriendsWithWeekly() : await getFriends();
-  if (friends.length === 0) {
-    el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">An no tienes amigos. Comparte tu cdigo.</p>';
-    return;
-  }
-  el.innerHTML = friends.map(function(f, i) {
-    var hours = Math.floor(f.totalMinutes / 60);
-    var mins = f.totalMinutes % 60;
-    return '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0;border-bottom:1px solid var(--line);font-size:13px;" data-id="' + f.id + '">' +
-      '<span style="width:18px;font-size:11px;color:var(--ink-soft);text-align:center;cursor:pointer;" class="friend-profile-trigger" data-id="' + f.id + '">' + (i + 1) + '</span>' +
-      '<span style="flex:1;cursor:pointer;color:var(--accent);" class="friend-profile-trigger" data-id="' + f.id + '">' + f.displayName + '</span>' +
-      '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;">' + hours + 'h ' + mins + 'm</span>' +
-      '<button class="friend-remove" data-id="' + f.id + '" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:11px;padding:0;margin-left:2px;">x</button></div>';
-  }).join("");
-
-  // wire remove buttons
-  el.querySelectorAll(".friend-remove").forEach(function(btn) {
-    btn.addEventListener("click", function(e) {
-      e.stopPropagation();
-      removeFriend(this.dataset.id);
-    });
-  });
-  // wire profile triggers
-  el.querySelectorAll(".friend-profile-trigger").forEach(function(el2) {
-    el2.addEventListener("click", function() {
-      showFriendProfile(this.dataset.id);
-    });
-  });
-}
-
-async function loadActivityFeed() {
-  var el = document.getElementById("prof-activity-feed");
-  if (!el) return;
-  var items = await getFriendActivityFeed();
-  if (items.length === 0) {
-    el.innerHTML = '<p style="color:var(--ink-soft);font-size:11px;margin:0.3rem 0;">Sin actividad reciente de amigos</p>';
-    return;
-  }
-  el.innerHTML = '<p style="font-size:11px;font-weight:600;margin:0 0 0.3rem;color:var(--ink-soft);">Actividad reciente</p>' +
-    items.map(function(item) {
-      var mins = Math.round((item.seconds || 0) / 60);
-      var t = '';
-      if (item.ts) {
-        var diff = Date.now() - item.ts;
-        if (diff < 60000) t = 'ahora';
-        else if (diff < 3600000) t = Math.floor(diff / 60000) + 'm';
-        else if (diff < 86400000) t = Math.floor(diff / 3600000) + 'h';
-        else t = Math.floor(diff / 86400000) + 'd';
-      }
-      return '<div style="display:flex;align-items:center;gap:0.3rem;padding:0.2rem 0;font-size:11px;border-bottom:1px solid var(--line);">' +
-        '<span style="font-weight:500;">' + item.friendName + '</span>' +
-        '<span style="color:var(--ink-soft);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (item.note || item.cat || "") + '</span>' +
-        '<span style="font-family:var(--mono);color:var(--ink-soft);">' + mins + 'm</span>' +
-        (t ? '<span style="color:var(--ink-soft);font-size:10px;">' + t + '</span>' : '') + '</div>';
-    }).join("");
 }
 
 /* ---------- FRIEND PROFILE MODAL ---------- */
@@ -677,6 +614,8 @@ async function showFriendProfile(friendId) {
   if (!profile) return;
   document.getElementById("fm-name").textContent = profile.displayName;
   document.getElementById("fm-total").textContent = "Total: " + Math.floor(profile.totalMinutes / 60) + "h " + profile.totalMinutes % 60 + "m";
+  var bioEl = document.getElementById("fm-bio");
+  if (bioEl) bioEl.textContent = profile.bio ? '"' + profile.bio + '"' : "";
   var avatarEl = document.getElementById("fm-avatar");
   avatarEl.textContent = profile.displayName[0].toUpperCase();
 
@@ -706,7 +645,6 @@ function toggleProfileDropdown() {
   var isOpen = dd.classList.contains("open");
   dd.classList.toggle("open");
   if (backdrop) backdrop.style.display = isOpen ? "none" : "block";
-  if (fbUser && !isOpen) { loadFriendsList(); loadActivityFeed(); loadPendingRequests(); }
 }
 
 function closeProfileDropdown() {
@@ -735,6 +673,95 @@ function handlePhotoUpload(file) {
     console.warn("Photo upload failed", e);
     setSyncStatus("Error al subir foto");
   });
+}
+
+/* ---------- SOCIAL PAGE ---------- */
+
+function renderSocialPage() {
+  if (!fbUser) return;
+  getMyFriendCode().then(function(c) {
+    var codeEl = document.getElementById("social-friend-code");
+    if (codeEl) codeEl.textContent = c || "---";
+  });
+  loadSocialFriendsList();
+  loadSocialActivityFeed();
+  loadSocialPendingRequests();
+}
+
+var socialWeeklyMode = false;
+
+async function loadSocialFriendsList() {
+  var el = document.getElementById("social-friends-list");
+  if (!el) return;
+  el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">Cargando...</p>';
+  var friends = socialWeeklyMode ? await getFriendsWithWeekly() : await getFriends();
+  if (friends.length === 0) {
+    el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">An no tienes amigos. Comparte tu cdigo o añade a alguien.</p>';
+    return;
+  }
+  el.innerHTML = friends.map(function(f, i) {
+    var hours = Math.floor(f.totalMinutes / 60);
+    var mins = f.totalMinutes % 60;
+    return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid var(--line);font-size:13px;" data-id="' + f.id + '">' +
+      '<span style="width:22px;height:22px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--ink-soft);cursor:pointer;" class="s-friend-profile" data-id="' + f.id + '">' + (i + 1) + '</span>' +
+      '<span style="flex:1;cursor:pointer;color:var(--accent);font-weight:500;" class="s-friend-profile" data-id="' + f.id + '">' + f.displayName + '</span>' +
+      '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;">' + hours + 'h ' + mins + 'm</span>' +
+      '<button class="s-friend-remove" data-id="' + f.id + '" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:13px;padding:0 4px;" title="Eliminar amigo">&times;</button></div>';
+  }).join("");
+  el.querySelectorAll(".s-friend-remove").forEach(function(btn) {
+    btn.addEventListener("click", function(e) { e.stopPropagation(); removeFriend(this.dataset.id); });
+  });
+  el.querySelectorAll(".s-friend-profile").forEach(function(el2) {
+    el2.addEventListener("click", function() { showFriendProfile(this.dataset.id); });
+  });
+}
+
+async function loadSocialActivityFeed() {
+  var el = document.getElementById("social-activity-feed");
+  if (!el) return;
+  var items = await getFriendActivityFeed();
+  if (items.length === 0) {
+    el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">Sin actividad reciente de amigos</p>';
+    return;
+  }
+  el.innerHTML = items.map(function(item) {
+    var mins = Math.round((item.seconds || 0) / 60);
+    var t = '';
+    if (item.ts) {
+      var diff = Date.now() - item.ts;
+      if (diff < 60000) t = 'ahora';
+      else if (diff < 3600000) t = Math.floor(diff / 60000) + 'm';
+      else if (diff < 86400000) t = Math.floor(diff / 3600000) + 'h';
+      else t = Math.floor(diff / 86400000) + 'd';
+    }
+    return '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0;font-size:12px;border-bottom:1px solid var(--line);">' +
+      '<span style="font-weight:500;cursor:pointer;color:var(--accent);" class="s-friend-profile" data-id="' + item.friendId + '">' + item.friendName + '</span>' +
+      '<span style="color:var(--ink-soft);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (item.note || item.cat || "") + '</span>' +
+      '<span style="font-family:var(--mono);color:var(--ink-soft);">' + mins + 'm</span>' +
+      (t ? '<span style="color:var(--ink-soft);font-size:10px;">' + t + '</span>' : '') + '</div>';
+  }).join("");
+  el.querySelectorAll(".s-friend-profile").forEach(function(el2) {
+    el2.addEventListener("click", function() { showFriendProfile(this.dataset.id); });
+  });
+}
+
+async function loadSocialPendingRequests() {
+  if (!fbUser) return;
+  var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friendRequests").where("status", "==", "pending").get();
+  var section = document.getElementById("social-requests-section");
+  var list = document.getElementById("social-requests-list");
+  if (!section || !list) return;
+  if (snap.empty) { section.style.display = "none"; return; }
+  section.style.display = "block";
+  var html = "";
+  snap.forEach(function(doc) {
+    var d = doc.data();
+    html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;font-size:13px;border-bottom:1px solid var(--line);">' +
+      '<span style="flex:1;font-weight:500;">' + (d.fromName || "Alguien") + '</span>' +
+      '<button class="social-req-accept" data-id="' + doc.id + '" data-from="' + d.from + '" style="font-size:11px;padding:0.25rem 0.6rem;border:none;border-radius:4px;background:var(--green);color:#fff;cursor:pointer;">Aceptar</button>' +
+      '<button class="social-req-decline" data-id="' + doc.id + '" style="font-size:11px;padding:0.25rem 0.6rem;border:none;border-radius:4px;background:var(--line);color:var(--ink-soft);cursor:pointer;">Rechazar</button></div>';
+  });
+  list.innerHTML = html;
 }
 
 /* ---------- HOOKS ---------- */
@@ -845,32 +872,24 @@ saveState = function() {
     closeProfileDropdown();
   });
 
-  var addFriendBtn = document.getElementById("prof-add-friend-btn");
-  if (addFriendBtn) addFriendBtn.addEventListener("click", async function() {
-    var input = document.getElementById("prof-friend-input");
-    var code = input ? input.value.trim() : "";
-    if (!code) return;
-    try {
-      await addFriendByCode(code);
-      setStatus(document.getElementById("prof-friend-status"), " Solicitud enviada", "ok");
-      if (input) input.value = "";
-    } catch (e) { setStatus(document.getElementById("prof-friend-status"), e.message, "err"); }
+  // bio auto-save on blur
+  var bioInput = document.getElementById("prof-bio-input");
+  var bioTimer = null;
+  if (bioInput) bioInput.addEventListener("input", function() {
+    if (bioTimer) clearTimeout(bioTimer);
+    bioTimer = setTimeout(function() {
+      fbUpdateBio(bioInput.value);
+      setStatus(document.getElementById("prof-status"), "Biografa guardada", "ok");
+      setTimeout(function() { setStatus(document.getElementById("prof-status"), "", ""); }, 2000);
+    }, 800);
   });
 
-  var copyBtn = document.getElementById("prof-copy-code");
-  if (copyBtn) copyBtn.addEventListener("click", function() {
-    var code = document.getElementById("prof-friend-code");
-    if (code && code.textContent) {
-      if (navigator.clipboard) navigator.clipboard.writeText(code.textContent).catch(function() {});
-    }
-  });
-
-  // rank toggle
-  var rankToggle = document.getElementById("prof-rank-toggle");
-  if (rankToggle) rankToggle.addEventListener("click", function() {
-    weeklyMode = !weeklyMode;
-    rankToggle.textContent = weeklyMode ? "Ranking semanal" : "Ranking general";
-    loadFriendsList();
+  // go to social from profile
+  var goSocial = document.getElementById("prof-go-social");
+  if (goSocial) goSocial.addEventListener("click", function() {
+    closeProfileDropdown();
+    var socialTab = document.querySelector(".nav-tab[data-page='social']");
+    if (socialTab) socialTab.click();
   });
 
   // photo upload
@@ -879,11 +898,40 @@ saveState = function() {
     if (this.files && this.files[0]) handlePhotoUpload(this.files[0]);
   });
 
+  /* ---------- SOCIAL PAGE EVENTS ---------- */
+
+  var socialAddBtn = document.getElementById("social-add-friend-btn");
+  if (socialAddBtn) socialAddBtn.addEventListener("click", async function() {
+    var input = document.getElementById("social-friend-input");
+    var code = input ? input.value.trim() : "";
+    if (!code) return;
+    try {
+      await addFriendByCode(code);
+      setStatus(document.getElementById("social-friend-status"), " Solicitud enviada", "ok");
+      if (input) input.value = "";
+    } catch (e) { setStatus(document.getElementById("social-friend-status"), e.message, "err"); }
+  });
+
+  var socialCopyBtn = document.getElementById("social-copy-code");
+  if (socialCopyBtn) socialCopyBtn.addEventListener("click", function() {
+    var code = document.getElementById("social-friend-code");
+    if (code && code.textContent) {
+      if (navigator.clipboard) navigator.clipboard.writeText(code.textContent).catch(function() {});
+    }
+  });
+
+  var socialRankToggle = document.getElementById("social-rank-toggle");
+  if (socialRankToggle) socialRankToggle.addEventListener("click", function() {
+    socialWeeklyMode = !socialWeeklyMode;
+    socialRankToggle.textContent = socialWeeklyMode ? "Ranking semanal" : "Ranking general";
+    loadSocialFriendsList();
+  });
+
   // friend request actions (delegated)
   document.addEventListener("click", function(e) {
-    if (e.target.classList.contains("req-accept")) {
+    if (e.target.classList.contains("social-req-accept")) {
       acceptFriendRequest(e.target.dataset.id, e.target.dataset.from);
-    } else if (e.target.classList.contains("req-decline")) {
+    } else if (e.target.classList.contains("social-req-decline")) {
       declineFriendRequest(e.target.dataset.id);
     }
   });
@@ -892,6 +940,12 @@ saveState = function() {
   var fmClose = document.getElementById("fm-close");
   if (fmClose) fmClose.addEventListener("click", function() {
     document.getElementById("friend-modal-overlay").style.display = "none";
+  });
+
+  // click overlay to close friend modal
+  var fmOverlay = document.getElementById("friend-modal-overlay");
+  if (fmOverlay) fmOverlay.addEventListener("click", function(e) {
+    if (e.target === fmOverlay) fmOverlay.style.display = "none";
   });
 
 })();

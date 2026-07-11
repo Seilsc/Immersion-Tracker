@@ -10,6 +10,7 @@ document.querySelectorAll(".nav-tab").forEach(tab => {
     if (tab.dataset.page === "stats") renderStats();
     if (tab.dataset.page === "historial") renderHistory();
     if (tab.dataset.page === "config") refreshGoalConfigUI();
+    if (tab.dataset.page === "social" && typeof renderSocialPage === "function") renderSocialPage();
   });
 });
 

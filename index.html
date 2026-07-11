@@ -865,31 +865,21 @@
         </div>
       </div>
 
+      <div class="prof-field">
+        <label>Biografía</label>
+        <textarea id="prof-bio-input" rows="2" style="width:100%;resize:none;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:12px;font-family:var(--sans);" placeholder="Cuéntanos algo sobre ti..."></textarea>
+      </div>
+
       <div id="prof-stats"></div>
 
       <button id="prof-reset-pass-btn" style="font-size:12px;background:none;border:none;cursor:pointer;color:var(--accent);padding:0;margin-bottom:0.5rem;text-decoration:underline;">Cambiar contraseña</button>
 
-      <div style="font-size:13px;color:var(--ink-soft);margin-bottom:0.3rem;">
-        Tu código: <code id="prof-friend-code" style="font-size:14px;font-weight:600;color:var(--accent);"></code>
-        <button id="prof-copy-code" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:12px;padding:0;margin-left:4px;text-decoration:underline;">copiar</button>
-      </div>
-
-      <div id="prof-requests-section" style="display:none;margin-bottom:0.4rem;">
-        <p style="font-size:12px;font-weight:600;margin:0 0 0.3rem;">Solicitudes pendientes</p>
-        <div id="prof-requests-list"></div>
-      </div>
-
-      <div style="display:flex;gap:0.4rem;margin-bottom:0.3rem;">
-        <input type="text" id="prof-friend-input" placeholder="Código de amigo" style="flex:1;min-width:0;" />
-        <button class="secondary" id="prof-add-friend-btn" style="white-space:nowrap;">Añadir</button>
-      </div>
-      <p class="status-msg" id="prof-friend-status"></p>
-      <div style="display:flex;gap:0.3rem;margin-bottom:0.3rem;">
-        <button id="prof-rank-toggle" class="secondary" style="flex:1;font-size:11px;padding:0.3rem;">Ranking general</button>
-      </div>
-      <div id="prof-friends-list" style="margin-bottom:0.5rem;max-height:220px;overflow-y:auto;"></div>
-      <div id="prof-activity-feed" style="max-height:150px;overflow-y:auto;margin-bottom:0.5rem;"></div>
       <hr style="border:none;border-top:1px solid var(--line);margin:0.5rem 0;" />
+
+      <button id="prof-go-social" style="width:100%;font-size:12px;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--accent);cursor:pointer;">Ir a sección social →</button>
+
+      <hr style="border:none;border-top:1px solid var(--line);margin:0.5rem 0;" />
+
       <div style="display:flex;gap:0.5rem;">
         <button class="danger-link" id="prof-logout-btn" style="flex:1;">Cerrar sesión</button>
         <button id="prof-delete-btn" style="flex:1;background:none;border:1px solid #d32f2f;color:#d32f2f;border-radius:8px;cursor:pointer;font-size:12px;padding:0.4rem;">Eliminar cuenta</button>
@@ -905,7 +895,7 @@
   <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;max-width:360px;width:90%;box-shadow:0 16px 64px rgba(0,0,0,0.2);">
     <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.8rem;">
       <div id="fm-avatar" style="width:40px;height:40px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:18px;flex-shrink:0;"></div>
-      <div><div id="fm-name" style="font-weight:600;"></div><div id="fm-total" style="font-size:12px;color:var(--ink-soft);"></div></div>
+      <div><div id="fm-name" style="font-weight:600;"></div><div id="fm-total" style="font-size:12px;color:var(--ink-soft);"></div><div id="fm-bio" style="font-size:11px;color:var(--ink-soft);margin-top:2px;"></div></div>
     </div>
     <div id="fm-langs" style="margin-bottom:0.8rem;"></div>
     <div id="fm-recent" style="max-height:120px;overflow-y:auto;font-size:12px;color:var(--ink-soft);"></div>
@@ -973,6 +963,7 @@
     <button class="nav-tab active" data-page="registro"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span> Registro</button>
     <button class="nav-tab" data-page="stats"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Estadísticas</button>
     <button class="nav-tab" data-page="historial"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/><path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M9 14h6"/></svg></span> Historial</button>
+    <button class="nav-tab" data-page="social"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Social</button>
     <button class="nav-tab" data-page="config"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Config</button>
   </div>
 
@@ -1262,6 +1253,50 @@
       <p class="status-msg" id="import-status"></p>
       <div id="history-list"></div>
     </section>
+  </div>
+
+  <!-- ==================== PAGE: SOCIAL ==================== -->
+  <div class="page" id="page-social">
+    <div class="content-card" id="social-logged-out" style="display:none;">
+      <p style="text-align:center;padding:2rem 0;color:var(--ink-soft);">Inicia sesin para ver la seccin social.</p>
+    </div>
+    <div id="social-logged-in" style="display:none;">
+      <div class="content-card" style="margin-bottom:1rem;">
+        <h2 class="section-title">Tu cdigo de amigo</h2>
+        <div style="display:flex;align-items:center;gap:0.5rem;font-size:14px;">
+          <code id="social-friend-code" style="font-size:18px;font-weight:700;color:var(--accent);"></code>
+          <button id="social-copy-code" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:12px;padding:2px 6px;text-decoration:underline;">copiar</button>
+        </div>
+        <div class="social-section" style="margin-top:1rem;">
+          <label style="font-size:12px;font-weight:600;">Aadir amigo por cdigo</label>
+          <div style="display:flex;gap:0.4rem;margin-top:0.3rem;">
+            <input type="text" id="social-friend-input" placeholder="Cdigo de 6 caracteres" style="flex:1;min-width:0;text-transform:uppercase;" />
+            <button class="secondary" id="social-add-friend-btn" style="white-space:nowrap;">Enviar solicitud</button>
+          </div>
+          <p class="status-msg" id="social-friend-status"></p>
+        </div>
+      </div>
+
+      <div class="content-card" style="margin-bottom:1rem;">
+        <div id="social-requests-section" style="display:none;margin-bottom:0.8rem;">
+          <h2 class="section-title">Solicitudes pendientes</h2>
+          <div id="social-requests-list"></div>
+        </div>
+      </div>
+
+      <div class="content-card" style="margin-bottom:1rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+          <h2 class="section-title" style="margin:0;">Ranking</h2>
+          <button id="social-rank-toggle" class="secondary" style="font-size:11px;padding:0.3rem 0.6rem;">Ranking general</button>
+        </div>
+        <div id="social-friends-list"></div>
+      </div>
+
+      <div class="content-card">
+        <h2 class="section-title">Actividad de amigos</h2>
+        <div id="social-activity-feed"></div>
+      </div>
+    </div>
   </div>
 
   <!-- ==================== PAGE: CONFIG ==================== -->
