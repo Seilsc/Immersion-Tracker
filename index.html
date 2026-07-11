@@ -853,7 +853,7 @@
     <div id="prof-logged-in" style="display:none;">
       <div id="prof-user-card" style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.5rem;">
         <div id="prof-user-avatar" style="width:48px;height:48px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:20px;flex-shrink:0;overflow:hidden;position:relative;cursor:pointer;" title="Cambiar foto">
-          <input type="file" id="prof-photo-input" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+          <input type="file" id="prof-photo-input" accept="image/*" aria-label="Cambiar foto" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
         </div>
         <div style="flex:1;">
           <div id="prof-user-name" style="font-weight:600;"></div>
@@ -873,7 +873,7 @@
     <div id="prof-edit-view" style="display:none;">
       <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.8rem;">
         <div id="prof-edit-avatar" style="width:56px;height:56px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:24px;flex-shrink:0;overflow:hidden;position:relative;cursor:pointer;" title="Cambiar foto">
-          <input type="file" id="prof-edit-photo-input" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+          <input type="file" id="prof-edit-photo-input" accept="image/*" aria-label="Cambiar foto" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;position:relative;z-index:1;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </div>
         <div style="flex:1;">
@@ -921,7 +921,7 @@
     </div>
     <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem;justify-content:center;">
       <span style="font-size:11px;color:var(--ink-soft);">Zoom</span>
-      <input type="range" id="crop-zoom" min="0.5" max="3" step="0.05" value="1" style="flex:1;max-width:160px;" />
+      <input type="range" id="crop-zoom" min="0.5" max="3" step="0.05" value="1" aria-label="Zoom" style="flex:1;max-width:160px;" />
     </div>
     <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
       <button id="crop-save" style="flex:1;padding:0.4rem;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;">Guardar</button>
@@ -1308,10 +1308,10 @@
       </div>
       <p class="section-help">Todas las sesiones registradas, de más reciente a más antigua.</p>
       <div class="history-filter">
-        <select id="filter-lang" style="width:auto;">
+        <select id="filter-lang" aria-label="Filtrar por idioma" style="width:auto;">
           <option value="">Todos los idiomas</option>
         </select>
-        <select id="filter-cat" style="width:auto;">
+        <select id="filter-cat" aria-label="Filtrar por categoría" style="width:auto;">
           <option value="">Todas las categorías</option>
         </select>
         <button class="secondary" id="export-csv">↓ CSV</button>
@@ -1372,7 +1372,7 @@
       <h2>Clave de la API de YouTube</h2>
       <p>Necesaria para calcular la duración automáticamente desde los enlaces de YouTube. Consíguela gratis en <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>: crea un proyecto → activa "YouTube Data API v3" → crea una credencial de tipo API key. Se guarda solo en tu navegador, nunca se envía a ningún sitio salvo a la propia API de YouTube.</p>
       <div class="api-row">
-        <input type="password" id="api-key-input" placeholder="Pega aquí tu API key de YouTube" autocomplete="off" />
+        <input type="password" id="api-key-input" aria-label="Clave de API de YouTube" placeholder="Pega aquí tu API key de YouTube" autocomplete="off" />
         <button id="api-key-save">Guardar clave</button>
         <button class="secondary" id="api-key-clear">Borrar</button>
       </div>
@@ -1383,7 +1383,7 @@
       <h2>Clave de la API de TMDB</h2>
       <p>Necesaria para buscar series/animes/películas y obtener la duración automáticamente. Consíguela gratis en <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> (crea una cuenta → Configuración → API → solicita una "API Key" tipo v3 auth). Se guarda solo en tu navegador.</p>
       <div class="api-row">
-        <input type="password" id="tmdb-key-input" placeholder="Pega aquí tu API key (v3 auth) de TMDB" autocomplete="off" />
+        <input type="password" id="tmdb-key-input" aria-label="Clave de API de TMDB" placeholder="Pega aquí tu API key (v3 auth) de TMDB" autocomplete="off" />
         <button id="tmdb-key-save">Guardar clave</button>
         <button class="secondary" id="tmdb-key-clear">Borrar</button>
       </div>

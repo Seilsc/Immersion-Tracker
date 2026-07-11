@@ -875,20 +875,13 @@ async function showRichProfile(friendId, isSelf) {
     }
   }
 
-  // recent sessions with badge + time ago
+  // recent sessions with badge
   var recentHtml = profile.recent.length === 0 ? '<p style="margin:0;font-size:12px;color:var(--ink-soft);">Sin sesiones</p>' :
     profile.recent.slice(0, 8).map(function(s) {
       var mins = Math.round((s.seconds || 0) / 60);
       var langBadge = s.lang ? '<span style="display:inline-block;margin-left:0.4rem;padding:0 6px;font-size:8px;line-height:16px;border-radius:4px;background:var(--accent-soft);color:var(--accent);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.3px;">' + s.lang + '</span>' : "";
-      var timeAgo = "";
-      if (s.ts) {
-        var diff = Date.now() - s.ts;
-        var days = Math.floor(diff / 86400000);
-        var hours = Math.floor((diff % 86400000) / 3600000);
-        timeAgo = '<span style="color:var(--ink-soft);font-size:10px;font-family:var(--mono);margin-left:0.4rem;">' + (days > 0 ? days + "d" : hours + "h") + '</span>';
-      }
       var fmt = mins > 0 ? (function(h,m){return h?h+"h"+(m?" "+m+"m":""):m+"m"})(Math.floor(mins/60), mins%60) : "—";
-      return '<div style="display:flex;align-items:center;padding:0.3rem 0;border-bottom:1px solid var(--line);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;color:var(--ink);">' + s.note + '</span><span style="display:flex;align-items:center;flex-shrink:0;">' + langBadge + '<span style="font-family:var(--mono);color:var(--ink-soft);margin-left:0.4rem;font-size:11px;">' + fmt + '</span>' + timeAgo + '</span></div>';
+      return '<div style="display:flex;align-items:center;padding:0.3rem 0;border-bottom:1px solid var(--line);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;color:var(--ink);">' + s.note + '</span><span style="display:flex;align-items:center;flex-shrink:0;">' + langBadge + '<span style="font-family:var(--mono);color:var(--ink-soft);margin-left:0.4rem;font-size:11px;">' + fmt + '</span></span></div>';
     }).join("");
   document.getElementById("fm-recent").innerHTML = recentHtml;
 
