@@ -140,18 +140,6 @@ async function fbUpdateBio(bio) {
   await firebase.firestore().collection("users").doc(fbUser.uid).update({ bio: bio.slice(0, 500) });
 }
 
-async function fbResetPassword() {
-  await firebase.auth().sendPasswordResetEmail(fbUser.email);
-}
-
-async function fbDeleteAccount() {
-  if (!confirm("Eliminar cuenta y todos los datos? Esta accin no se puede deshacer.")) return;
-  // delete avatar if exists
-  if (firebase.storage) { try { await firebase.storage().ref("avatars/" + fbUser.uid).delete(); } catch (e) {} }
-  await firebase.firestore().collection("users").doc(fbUser.uid).delete();
-  await fbUser.delete();
-}
-
 function fbSignInWithGoogle() {
   var statusEl = document.getElementById("prof-status");
   var provider = new firebase.auth.GoogleAuthProvider();
@@ -294,22 +282,6 @@ function loadGravatarBig(el) {
   gravBig.onload = function() {
     if (gravBig.width > 10) { el.textContent = ""; el.style.backgroundImage = "url(" + gravBig.src + ")"; el.style.backgroundSize = "cover"; }
   };
-}
-
-function getPersonalStats() {
-  var totalSessions = state.sessions.length;
-  var totalMinutes = 0;
-  var langCount = {};
-  state.sessions.forEach(function(s) {
-    totalMinutes += (s.seconds || 0) / 60;
-    var lang = s.lang || "otro";
-    if (!langCount[lang]) langCount[lang] = 0;
-    langCount[lang] += (s.seconds || 0) / 60;
-  });
-  (state.youtube || []).forEach(function(v) { var m = (v.seconds || v.duration || 0) / 60; totalMinutes += m; });
-  (state.shows || []).forEach(function(sh) { var m = (sh.episodesWatched || 0) * (sh.epDuration || 0); totalMinutes += m; });
-  (state.movies || []).forEach(function(mo) { var m = (mo.seconds || mo.duration || 0) / 60; totalMinutes += m; });
-  return { totalSessions: totalSessions, totalMinutes: Math.round(totalMinutes), langCount: langCount };
 }
 
 function getDisplayPrefs() {
@@ -547,8 +519,6 @@ function updateProfileUI() {
     if (sLoggedOut) sLoggedOut.style.display = "none";
     if (sLoggedIn) sLoggedIn.style.display = "block";
 
-    var ql = document.getElementById("quick-logout");
-    if (ql) ql.style.display = "block";
     if (avatar) avatar.style.display = "none";
     if (img) {
       img.style.display = "block";
@@ -600,17 +570,7 @@ function updateProfileUI() {
       }
     }
 
-    var statsEl = document.getElementById("prof-stats");
-    if (statsEl) {
-      var s = getPersonalStats();
-      statsEl.innerHTML = '<div style="display:flex;gap:0.75rem;margin-bottom:0.75rem;">' +
-        '<div style="flex:1;padding:0.4rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:16px;">' + s.totalSessions + '</div><div style="color:var(--ink-soft);font-size:10px;">sesiones</div></div>' +
-        '<div style="flex:1;padding:0.4rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:16px;">' + Math.floor(s.totalMinutes / 60) + 'h ' + s.totalMinutes % 60 + 'm</div><div style="color:var(--ink-soft);font-size:10px;">totales</div></div>' +
-        '<div style="flex:1;padding:0.4rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:16px;">' + Object.keys(s.langCount).length + '</div><div style="color:var(--ink-soft);font-size:10px;">idiomas</div></div></div>';
-    }
   } else {
-    var ql = document.getElementById("quick-logout");
-    if (ql) ql.style.display = "none";
     if (avatar) avatar.style.display = "flex";
     if (img) { img.style.display = "none"; img.src = ""; }
     if (loggedOut) loggedOut.style.display = "block";
@@ -868,12 +828,6 @@ saveState = function() {
     fbSignInWithGoogle();
   });
 
-  var quickLogout = document.getElementById("quick-logout");
-  if (quickLogout) quickLogout.addEventListener("click", async function() {
-    await fbSignOut();
-    closeProfileDropdown();
-  });
-
   var editNameBtn = document.getElementById("prof-edit-name-btn");
   if (editNameBtn) editNameBtn.addEventListener("click", function() {
     var input = document.getElementById("prof-edit-name-input");
@@ -892,22 +846,6 @@ saveState = function() {
     });
   });
 
-  var resetPassBtn = document.getElementById("prof-reset-pass-btn");
-  if (resetPassBtn) resetPassBtn.addEventListener("click", async function() {
-    try {
-      await fbResetPassword();
-      setStatus(document.getElementById("prof-status"), " Email de recuperacin enviado", "ok");
-    } catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
-  });
-
-  var deleteAccountBtn = document.getElementById("prof-delete-btn");
-  if (deleteAccountBtn) deleteAccountBtn.addEventListener("click", async function() {
-    try {
-      await fbDeleteAccount();
-      closeProfileDropdown();
-    } catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
-  });
-
   var logoutBtn = document.getElementById("prof-logout-btn");
   if (logoutBtn) logoutBtn.addEventListener("click", async function() {
     await fbSignOut();
@@ -924,14 +862,6 @@ saveState = function() {
       setStatus(document.getElementById("prof-status"), "Biografa guardada", "ok");
       setTimeout(function() { setStatus(document.getElementById("prof-status"), "", ""); }, 2000);
     }, 800);
-  });
-
-  // go to social from profile
-  var goSocial = document.getElementById("prof-go-social");
-  if (goSocial) goSocial.addEventListener("click", function() {
-    closeProfileDropdown();
-    var socialTab = document.querySelector(".nav-tab[data-page='social']");
-    if (socialTab) socialTab.click();
   });
 
   // photo upload
