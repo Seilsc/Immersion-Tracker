@@ -401,21 +401,29 @@ async function removeFriend(friendId) {
 
 async function getFriends() {
   if (!fbUser) return [];
+  var people = [];
+  // include self
+  var myUser = await firebase.firestore().collection("users").doc(fbUser.uid).get();
+  var myData = await firebase.firestore().collection("users").doc(fbUser.uid).collection("data").doc("state").get();
+  people.push({
+    id: fbUser.uid, displayName: myUser.exists ? (myUser.data().displayName || "T") : "T",
+    isSelf: true,
+    totalMinutes: myData.exists ? totalFromState(myData.data().state) : 0
+  });
   var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").get();
-  var friends = [];
   for (var i = 0; i < snap.docs.length; i++) {
     var fId = snap.docs[i].id;
     var fUser = await firebase.firestore().collection("users").doc(fId).get();
     if (fUser.exists) {
       var fData = await firebase.firestore().collection("users").doc(fId).collection("data").doc("state").get();
-      friends.push({
+      people.push({
         id: fId, displayName: fUser.data().displayName || "Amigo",
         friendCode: fUser.data().friendCode,
         totalMinutes: fData.exists ? totalFromState(fData.data().state) : 0
       });
     }
   }
-  return friends.sort(function(a, b) { return b.totalMinutes - a.totalMinutes; });
+  return people.sort(function(a, b) { return b.totalMinutes - a.totalMinutes; });
 }
 
 async function getFriendsWithWeekly() {
