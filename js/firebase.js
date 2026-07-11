@@ -710,22 +710,29 @@ async function showRichProfile(friendId, isSelf) {
   }
   if (avatarEl) avatarEl.style.backgroundColor = "";
 
-  // stats cards
+  // stats cards — 3 per row
   var totalH = Math.floor(profile.totalMinutes / 60);
   var totalM = profile.totalMinutes % 60;
-  // per-language hours for extra card
   var topLang = profile.languages.length > 0 ? profile.languages[0].name : "---";
   var topLangHours = profile.languages.length > 0 ? Math.floor(profile.languages[0].minutes / 60) : 0;
   var statCards = [
     { val: profile.totalSessions, label: "sesiones" },
-    { val: totalH + "h " + totalM + "m", label: "total", small: true },
+    { val: totalH + "h " + totalM + "m", label: "total" },
     { val: profile.languages.length, label: "idiomas" },
-    { val: profile.streak.current + " d&iacute;a" + (profile.streak.current !== 1 ? "s" : ""), label: "racha actual" },
-    { val: profile.streak.longest + " d&iacute;a" + (profile.streak.longest !== 1 ? "s" : ""), label: "mejor racha", small: true },
-    { val: topLangHours + "h", label: topLang, small: true }
+    { val: "current", label: "racha actual", dynamic: true },
+    { val: "longest", label: "mejor racha", dynamic: true },
+    { val: topLangHours + "h", label: topLang }
   ];
-  document.getElementById("fm-stats").innerHTML = statCards.map(function(c) {
-    return '<div style="flex:1;padding:0.35rem 0.2rem;background:var(--surface2);border-radius:8px;text-align:center;"><div style="font-weight:600;font-size:' + (c.small ? '11px' : '14px') + ';">' + c.val + '</div><div style="color:var(--ink-soft);font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + c.label + '</div></div>';
+  var statColors = ["var(--accent)", "var(--green)", "var(--blue)", "var(--purple)", "var(--gold)", "var(--accent)"];
+  document.getElementById("fm-stats").innerHTML = statCards.map(function(c, i) {
+    var val = c.val;
+    if (c.dynamic) {
+      var key = c.val;
+      var raw = profile.streak ? profile.streak[key] : 0;
+      val = raw + " d&iacute;a" + (raw !== 1 ? "s" : "");
+    }
+    var color = statColors[i % statColors.length];
+    return '<div style="flex:1;min-width:80px;padding:0.5rem 0.4rem;background:var(--surface2);border-radius:10px;text-align:center;border:1px solid var(--line);"><div style="font-weight:600;font-size:16px;color:' + color + ';">' + val + '</div><div style="color:var(--ink-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.3px;margin-top:2px;">' + c.label + '</div></div>';
   }).join("");
 
   // language bars
@@ -739,7 +746,7 @@ async function showRichProfile(friendId, isSelf) {
     }).join("");
   document.getElementById("fm-langs").innerHTML = langHtml;
 
-  // weekly chart — always renders
+  // weekly chart — taller bars
   console.log("showRichProfile: weekly data", profile.weekly);
   var chartEl = document.getElementById("fm-chart");
   if (chartEl) {
@@ -748,13 +755,14 @@ async function showRichProfile(friendId, isSelf) {
     if (daysArr.length === 0) {
       chartEl.innerHTML = '<p style="margin:0;font-size:11px;color:var(--ink-soft);">Sin datos esta semana</p>';
     } else {
+      chartEl.style.height = "80px";
       chartEl.innerHTML = daysArr.map(function(d) {
         var raw = d.minutes / maxVal;
-        var pct = Math.max(raw * 100, raw > 0 ? 6 : 3);
-        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:60px;justify-content:flex-end;">' +
-          '<div style="font-size:8px;color:var(--ink-soft);margin-bottom:2px;font-family:var(--mono);">' + (d.minutes > 0 ? d.minutes + "m" : "") + '</div>' +
-          '<div style="width:100%;max-width:28px;height:' + pct + '%;min-height:3px;border-radius:3px 3px 0 0;background:var(--accent);opacity:' + (d.minutes > 0 ? "1" : "0.25") + ';"></div>' +
-          '<div style="font-size:8px;color:var(--ink-soft);margin-top:2px;">' + d.label + '</div></div>';
+        var pct = Math.max(raw * 100, raw > 0 ? 8 : 3);
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:80px;justify-content:flex-end;">' +
+          '<div style="font-size:9px;color:var(--ink-soft);margin-bottom:3px;font-family:var(--mono);">' + (d.minutes > 0 ? d.minutes + "m" : "") + '</div>' +
+          '<div style="width:100%;max-width:32px;height:' + pct + '%;min-height:3px;border-radius:4px 4px 0 0;background:var(--accent);opacity:' + (d.minutes > 0 ? "1" : "0.2") + ';"></div>' +
+          '<div style="font-size:9px;color:var(--ink-soft);margin-top:3px;">' + d.label + '</div></div>';
       }).join("");
     }
   }
@@ -838,11 +846,19 @@ async function showRichProfile(friendId, isSelf) {
     }
   }
 
-  // recent sessions
-  var recentHtml = profile.recent.length === 0 ? '<p style="margin:0;">Sin sesiones</p>' :
+  // recent sessions with badge + time ago
+  var recentHtml = profile.recent.length === 0 ? '<p style="margin:0;font-size:12px;color:var(--ink-soft);">Sin sesiones</p>' :
     profile.recent.slice(0, 8).map(function(s) {
       var mins = Math.round((s.seconds || 0) / 60);
-      return '<div style="display:flex;justify-content:space-between;padding:0.2rem 0;border-bottom:1px solid var(--line);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">' + s.note + '</span><span style="font-family:var(--mono);color:var(--ink-soft);margin-left:0.5rem;">' + mins + 'm</span></div>';
+      var langBadge = s.lang ? '<span style="display:inline-block;margin-left:0.4rem;padding:0 6px;font-size:8px;line-height:16px;border-radius:4px;background:var(--accent-soft);color:var(--accent);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.3px;">' + s.lang + '</span>' : "";
+      var timeAgo = "";
+      if (s.ts) {
+        var diff = Date.now() - s.ts;
+        var days = Math.floor(diff / 86400000);
+        var hours = Math.floor((diff % 86400000) / 3600000);
+        timeAgo = '<span style="color:var(--ink-soft);font-size:10px;font-family:var(--mono);margin-left:0.4rem;">' + (days > 0 ? days + "d" : hours + "h") + '</span>';
+      }
+      return '<div style="display:flex;align-items:center;padding:0.3rem 0;border-bottom:1px solid var(--line);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;color:var(--ink);">' + s.note + '</span><span style="display:flex;align-items:center;flex-shrink:0;">' + langBadge + '<span style="font-family:var(--mono);color:var(--ink-soft);margin-left:0.4rem;font-size:11px;">' + mins + 'm</span>' + timeAgo + '</span></div>';
     }).join("");
   document.getElementById("fm-recent").innerHTML = recentHtml;
 
@@ -853,6 +869,8 @@ async function showRichProfile(friendId, isSelf) {
       removeBtn.style.display = "none";
     } else {
       removeBtn.style.display = "";
+      removeBtn.onmouseenter = function() { this.style.background = "var(--accent)"; this.style.color = "#fff"; };
+      removeBtn.onmouseleave = function() { this.style.background = "transparent"; this.style.color = "var(--accent)"; };
       removeBtn.onclick = function() {
         if (confirm("Eliminar amigo?")) {
           removeFriend(friendId);
@@ -861,6 +879,11 @@ async function showRichProfile(friendId, isSelf) {
       };
     }
   }
+  // close button (X)
+  var closeX = document.getElementById("fm-close-x");
+  if (closeX) closeX.onclick = function() { overlay.style.display = "none"; };
+  // click outside to close
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = "none"; };
 
   overlay.style.display = "flex";
   } catch (e) { console.error("showRichProfile error:", e); }
@@ -1314,7 +1337,7 @@ saveState = function() {
   });
 
   // friend modal close
-  var fmClose = document.getElementById("fm-close");
+  var fmClose = document.getElementById("fm-close-x");
   if (fmClose) fmClose.addEventListener("click", function() {
     document.getElementById("friend-modal-overlay").style.display = "none";
   });

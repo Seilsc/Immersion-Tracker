@@ -930,40 +930,41 @@
 
 <!-- RICH PROFILE MODAL -->
 <div id="friend-modal-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
-  <div id="fm-scroll" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;max-width:700px;width:95%;max-height:90vh;overflow-y:auto;overflow-x:hidden;box-shadow:0 16px 64px rgba(0,0,0,0.25);">
+  <div id="fm-scroll" style="position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;max-width:700px;width:95%;max-height:90vh;overflow-y:auto;overflow-x:hidden;box-shadow:0 16px 64px rgba(0,0,0,0.25);">
+    <!-- close X -->
+    <button id="fm-close-x" style="position:absolute;top:0.75rem;right:0.75rem;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;transition:background 0.15s;">&times;</button>
     <!-- header -->
-    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
-      <div id="fm-avatar" style="width:56px;height:56px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:22px;flex-shrink:0;overflow:hidden;background-size:cover;background-position:center;"></div>
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;">
+      <div id="fm-avatar" style="width:64px;height:64px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:26px;flex-shrink:0;overflow:hidden;background-size:cover;background-position:center;border:2px solid var(--accent-soft);box-shadow:0 2px 8px rgba(0,0,0,0.12);"></div>
       <div style="flex:1;min-width:0;">
-        <div id="fm-name" style="font-weight:600;font-size:16px;"></div>
+        <div id="fm-name" style="font-weight:600;font-size:18px;color:var(--ink);"></div>
         <div id="fm-bio" style="font-size:12px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
         <div id="fm-friendcode" style="font-size:10px;color:var(--ink-soft);margin-top:2px;font-family:var(--mono);"></div>
       </div>
     </div>
     <!-- stats cards -->
-    <div id="fm-stats" style="display:flex;gap:0.5rem;margin-bottom:1rem;"></div>
+    <div id="fm-stats" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1.25rem;"></div>
     <!-- languages -->
-    <div id="fm-langs-section" style="margin-bottom:1rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;">Idiomas</div>
+    <div id="fm-langs-section" style="margin-bottom:1.25rem;">
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.5px;">Idiomas</div>
       <div id="fm-langs"></div>
     </div>
     <!-- weekly chart -->
-    <div id="fm-chart-section" style="margin-bottom:0.6rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;">Esta semana</div>
-      <div id="fm-chart" style="display:flex;align-items:flex-end;gap:4px;height:60px;"></div>
+    <div id="fm-chart-section" style="margin-bottom:1rem;">
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.5px;">Esta semana</div>
+      <div id="fm-chart" style="display:flex;align-items:flex-end;gap:4px;height:80px;"></div>
     </div>
-    <!-- daily activity list -->
-    <div id="fm-daily-section" style="margin-bottom:1rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;">Actividad diaria</div>
+    <!-- daily activity heatmap -->
+    <div id="fm-daily-section" style="margin-bottom:1.25rem;">
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.5px;">Calendario de actividad</div>
       <div id="fm-daily" style="overflow-x:auto;overflow-y:visible;scrollbar-width:thin;min-width:0;"></div>
     </div>
     <!-- recent -->
     <div id="fm-recent-section" style="margin-bottom:0.8rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.3rem;">&Uacute;ltimas sesiones</div>
-      <div id="fm-recent" style="max-height:100px;overflow-y:auto;font-size:12px;color:var(--ink-soft);"></div>
+      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.5px;">&Uacute;ltimas sesiones</div>
+      <div id="fm-recent" style="max-height:120px;overflow-y:auto;font-size:12px;color:var(--ink-soft);"></div>
     </div>
-    <button id="fm-remove" style="width:100%;margin-top:0.4rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:none;color:var(--accent);cursor:pointer;font-size:12px;">Eliminar amigo</button>
-    <button id="fm-close" style="width:100%;margin-top:0.4rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:13px;">Cerrar</button>
+    <button id="fm-remove" style="width:100%;margin-top:0.5rem;padding:0.5rem;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);cursor:pointer;font-size:13px;font-weight:500;transition:background 0.15s;">Eliminar amigo</button>
   </div>
 </div>
 
