@@ -578,12 +578,13 @@ async function getRichProfileData(userId) {
     recent: recent
   };
   // apply privacy filter (hide sections when viewing someone else)
-  if (privacy.total) { result.totalMinutes = 0; result.totalSessions = 0; }
-  if (privacy.languages) { result.languages = []; }
-  if (privacy.weekly) { result.weekly = { days: [], max: 0 }; }
-  if (privacy.daily) { result.daily = []; }
-  if (privacy.recent) { result.recent = []; }
-  if (privacy.streak) { result.streak = { current: 0, longest: 0 }; }
+  result.hidden = {};
+  if (privacy.total) { result.hidden.total = true; result.totalMinutes = 0; result.totalSessions = 0; }
+  if (privacy.languages) { result.hidden.languages = true; result.languages = []; }
+  if (privacy.weekly) { result.hidden.weekly = true; result.weekly = { days: [], max: 0 }; }
+  if (privacy.daily) { result.hidden.daily = true; result.daily = []; }
+  if (privacy.recent) { result.hidden.recent = true; result.recent = []; }
+  if (privacy.streak) { result.hidden.streak = true; result.streak = { current: 0, longest: 0 }; }
   return result;
 }
 
@@ -730,15 +731,15 @@ async function showRichProfile(friendId, isSelf) {
   // stats cards — 3 per row
   var totalH = Math.floor(profile.totalMinutes / 60);
   var totalM = profile.totalMinutes % 60;
-  var topLang = profile.languages.length > 0 ? profile.languages[0].name : "---";
-  var topLangHours = profile.languages.length > 0 ? Math.floor(profile.languages[0].minutes / 60) : 0;
+  var topLang = profile.hidden.languages ? "---" : (profile.languages.length > 0 ? profile.languages[0].name : "---");
+  var topLangHours = profile.hidden.languages ? 0 : (profile.languages.length > 0 ? Math.floor(profile.languages[0].minutes / 60) : 0);
   var statCards = [
-    { val: profile.totalSessions, label: "sesiones" },
-    { val: totalH + "h " + totalM + "m", label: "total" },
-    { val: profile.languages.length, label: "idiomas" },
-    { val: "current", label: "racha actual", dynamic: true },
-    { val: "longest", label: "mejor racha", dynamic: true },
-    { val: topLangHours + "h", label: topLang }
+    { val: profile.hidden.total ? "---" : profile.totalSessions, label: "sesiones" },
+    { val: profile.hidden.total ? "---" : totalH + "h " + totalM + "m", label: "total" },
+    { val: profile.hidden.languages ? "---" : profile.languages.length, label: "idiomas" },
+    { val: profile.hidden.streak ? "---" : "current", label: "racha actual", dynamic: !profile.hidden.streak },
+    { val: profile.hidden.streak ? "---" : "longest", label: "mejor racha", dynamic: !profile.hidden.streak },
+    { val: profile.hidden.languages ? "---" : topLangHours + "h", label: topLang }
   ];
   var statColors = ["var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)"];
   document.getElementById("fm-stats").innerHTML = statCards.map(function(c, i) {
@@ -753,45 +754,61 @@ async function showRichProfile(friendId, isSelf) {
   }).join("");
 
   // language bars
-  var langColors = ["var(--accent)", "var(--green)", "var(--blue)", "var(--purple)", "var(--gold)"];
-  var langHtml = profile.languages.length === 0 ? '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Sin datos</p>' :
-    profile.languages.map(function(l, i) {
-      var c = langColors[i % langColors.length];
-      return '<div style="margin-bottom:0.35rem;">' +
-        '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>' + l.name + '</span><span style="font-family:var(--mono);color:var(--ink-soft);">' + Math.floor(l.minutes / 60) + 'h ' + l.minutes % 60 + 'm (' + l.sessions + ' ses)</span></div>' +
-        '<div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden;"><div style="height:100%;width:' + l.pct + '%;border-radius:3px;background:' + c + ';transition:width 0.3s;"></div></div></div>';
-    }).join("");
-  document.getElementById("fm-langs").innerHTML = langHtml;
+  var langsSection = document.getElementById("fm-langs-section");
+  if (profile.hidden.languages) {
+    if (langsSection) langsSection.style.display = "none";
+  } else {
+    if (langsSection) langsSection.style.display = "";
+    var langColors = ["var(--accent)", "var(--green)", "var(--blue)", "var(--purple)", "var(--gold)"];
+    var langHtml = profile.languages.length === 0 ? '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Sin datos</p>' :
+      profile.languages.map(function(l, i) {
+        var c = langColors[i % langColors.length];
+        return '<div style="margin-bottom:0.35rem;">' +
+          '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>' + l.name + '</span><span style="font-family:var(--mono);color:var(--ink-soft);">' + Math.floor(l.minutes / 60) + 'h ' + l.minutes % 60 + 'm (' + l.sessions + ' ses)</span></div>' +
+          '<div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden;"><div style="height:100%;width:' + l.pct + '%;border-radius:3px;background:' + c + ';transition:width 0.3s;"></div></div></div>';
+      }).join("");
+    document.getElementById("fm-langs").innerHTML = langHtml;
+  }
 
   // weekly chart — bigger bars
-  console.log("showRichProfile: weekly data", profile.weekly);
-  var chartEl = document.getElementById("fm-chart");
-  if (chartEl) {
-    var daysArr = (profile.weekly && profile.weekly.days) ? profile.weekly.days : [];
-    var maxVal = Math.max((profile.weekly && profile.weekly.max) || 0, 1);
-    if (daysArr.length === 0) {
-      chartEl.innerHTML = '<p style="margin:0;font-size:11px;color:var(--ink-soft);">Sin datos esta semana</p>';
-    } else {
-      chartEl.style.height = "100px";
-      chartEl.style.gap = "6px";
-      chartEl.innerHTML = daysArr.map(function(d) {
-        var raw = d.minutes / maxVal;
-        var pct = Math.max(raw * 100, raw > 0 ? 8 : 3);
-        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:100px;justify-content:flex-end;">' +
-          '<div style="font-size:10px;color:var(--ink-soft);margin-bottom:4px;font-family:var(--mono);">' +           (function(mins) {
-            if (mins <= 0) return "";
-            var h = Math.floor(mins / 60);
-            var m = mins % 60;
-            return h > 0 ? h + "h" + (m > 0 ? " " + m + "m" : "") : m + "m";
-          })(d.minutes) + '</div>' +
-          '<div style="width:100%;max-width:48px;height:' + pct + '%;min-height:4px;border-radius:4px 4px 0 0;background:var(--accent);opacity:' + (d.minutes > 0 ? "1" : "0.2") + ';"></div>' +
-          '<div style="font-size:10px;color:var(--ink-soft);margin-top:4px;">' + d.label + '</div></div>';
-      }).join("");
+  var chartSection = document.getElementById("fm-chart-section");
+  if (profile.hidden.weekly) {
+    if (chartSection) chartSection.style.display = "none";
+  } else {
+    if (chartSection) chartSection.style.display = "";
+    var chartEl = document.getElementById("fm-chart");
+    if (chartEl) {
+      var daysArr = (profile.weekly && profile.weekly.days) ? profile.weekly.days : [];
+      var maxVal = Math.max((profile.weekly && profile.weekly.max) || 0, 1);
+      if (daysArr.length === 0) {
+        chartEl.innerHTML = '<p style="margin:0;font-size:11px;color:var(--ink-soft);">Sin datos esta semana</p>';
+      } else {
+        chartEl.style.height = "100px";
+        chartEl.style.gap = "6px";
+        chartEl.innerHTML = daysArr.map(function(d) {
+          var raw = d.minutes / maxVal;
+          var pct = Math.max(raw * 100, raw > 0 ? 8 : 3);
+          return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:100px;justify-content:flex-end;">' +
+            '<div style="font-size:10px;color:var(--ink-soft);margin-bottom:4px;font-family:var(--mono);">' +           (function(mins) {
+              if (mins <= 0) return "";
+              var h = Math.floor(mins / 60);
+              var m = mins % 60;
+              return h > 0 ? h + "h" + (m > 0 ? " " + m + "m" : "") : m + "m";
+            })(d.minutes) + '</div>' +
+            '<div style="width:100%;max-width:48px;height:' + pct + '%;min-height:4px;border-radius:4px 4px 0 0;background:var(--accent);opacity:' + (d.minutes > 0 ? "1" : "0.2") + ';"></div>' +
+            '<div style="font-size:10px;color:var(--ink-soft);margin-top:4px;">' + d.label + '</div></div>';
+        }).join("");
+      }
     }
   }
   // daily heatmap (same as stats page)
-  var dailyEl = document.getElementById("fm-daily");
-  if (dailyEl) {
+  var dailySection = document.getElementById("fm-daily-section");
+  if (profile.hidden.daily) {
+    if (dailySection) dailySection.style.display = "none";
+  } else {
+    if (dailySection) dailySection.style.display = "";
+    var dailyEl = document.getElementById("fm-daily");
+    if (dailyEl) {
     var dayMap = {};
     (profile.daily || []).forEach(function(d) { dayMap[d.dateStr] = d.minutes * 60; });
     if (Object.keys(dayMap).length === 0) {
@@ -889,18 +906,25 @@ async function showRichProfile(friendId, isSelf) {
           });
         });
       }
+      }
     }
   }
-
+  
   // recent sessions with badge
-  var recentHtml = profile.recent.length === 0 ? '<p style="margin:0;font-size:12px;color:var(--ink-soft);">Sin sesiones</p>' :
+  var recentSection = document.getElementById("fm-recent-section");
+  if (profile.hidden.recent) {
+    if (recentSection) recentSection.style.display = "none";
+  } else {
+    if (recentSection) recentSection.style.display = "";
+    var recentHtml = profile.recent.length === 0 ? '<p style="margin:0;font-size:12px;color:var(--ink-soft);">Sin sesiones</p>' :
     profile.recent.slice(0, 8).map(function(s) {
       var mins = Math.round((s.seconds || 0) / 60);
       var langBadge = s.lang ? '<span style="display:inline-block;margin-left:0.4rem;padding:0 6px;font-size:8px;line-height:16px;border-radius:4px;background:var(--accent-soft);color:var(--accent);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.3px;">' + s.lang + '</span>' : "";
       var fmt = mins > 0 ? (function(h,m){return h?h+"h"+(m?" "+m+"m":""):m+"m"})(Math.floor(mins/60), mins%60) : "—";
       return '<div style="display:flex;align-items:center;padding:0.3rem 0;border-bottom:1px solid var(--line);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;color:var(--ink);">' + s.note + '</span><span style="display:flex;align-items:center;flex-shrink:0;">' + langBadge + '<span style="font-family:var(--mono);color:var(--ink-soft);margin-left:0.4rem;font-size:11px;">' + fmt + '</span></span></div>';
     }).join("");
-  document.getElementById("fm-recent").innerHTML = recentHtml;
+    document.getElementById("fm-recent").innerHTML = recentHtml;
+  }
 
   // remove button (only for friends, not self)
   var removeBtn = document.getElementById("fm-remove");
