@@ -539,8 +539,8 @@ function updateProfileUI() {
         var d = doc.data();
         if (editNameInput) editNameInput.value = d.displayName || fbUser.displayName || "";
         if (editBio) editBio.value = d.bio || "";
-        if (editAvatar && d.avatarUrl) {
-          editAvatar.style.backgroundImage = "url(" + d.avatarUrl + ")";
+        if (editAvatar && (d.avatarBase64 || d.avatarUrl)) {
+          editAvatar.style.backgroundImage = "url(" + (d.avatarBase64 || d.avatarUrl) + ")";
           editAvatar.style.backgroundSize = "cover";
         } else if (editAvatar) {
           loadGravatarBig(editAvatar);
@@ -554,8 +554,9 @@ function updateProfileUI() {
     // also load avatar for dropdown user card (never set textContent — preserves file input child)
     if (avatarBig) {
       firebase.firestore().collection("users").doc(fbUser.uid).get().then(function(doc) {
-        if (doc.exists && doc.data().avatarUrl) {
-          avatarBig.style.backgroundImage = "url(" + doc.data().avatarUrl + ")";
+        var av = doc.exists && (doc.data().avatarBase64 || doc.data().avatarUrl);
+        if (av) {
+          avatarBig.style.backgroundImage = "url(" + av + ")";
           avatarBig.style.backgroundSize = "cover";
         } else {
           loadGravatarBig(avatarBig);
@@ -644,21 +645,23 @@ function closeProfileDropdown() {
 
 function handlePhotoUpload(file) {
   if (!fbUser || !file) return;
-  if (!firebase.storage) { setSyncStatus("Storage no disponible"); return; }
   setSyncStatus("Subiendo foto...");
-  var ref = firebase.storage().ref("avatars/" + fbUser.uid);
-  ref.put(file).then(function() {
-    return ref.getDownloadURL();
-  }).then(function(url) {
-    return firebase.firestore().collection("users").doc(fbUser.uid).update({ avatarUrl: url });
-  }).then(function() {
-    updateProfileUI();
-    setSyncStatus("Foto actualizada");
-    setTimeout(function() { setSyncStatus(""); }, 2000);
-  }).catch(function(e) {
-    console.warn("Photo upload failed", e);
-    setSyncStatus("Error al subir foto");
-  });
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var dataUrl = e.target.result;
+    firebase.firestore().collection("users").doc(fbUser.uid).update({ avatarBase64: dataUrl }).then(function() {
+      updateProfileUI();
+      setSyncStatus("Foto actualizada");
+      setTimeout(function() { setSyncStatus(""); }, 2000);
+    }).catch(function(e) {
+      console.warn("Photo save failed", e);
+      setSyncStatus("Error al guardar foto");
+    });
+  };
+  reader.onerror = function() {
+    setSyncStatus("Error al leer el archivo");
+  };
+  reader.readAsDataURL(file);
 }
 
 /* ---------- SOCIAL PAGE ---------- */
