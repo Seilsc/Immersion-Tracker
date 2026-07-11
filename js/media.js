@@ -320,8 +320,8 @@ window.saveYtSession = function(i) {
 async function searchTmdbShows(query) {
   const key = getTmdbKey();
   if (!key) throw new Error("NO_TMDB_KEY");
-  const url = `https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}&language=es-ES&page=1`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+  const url = `https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}&language=es-ES&page=1&api_key=${key}`;
+  const res = await fetch(url);
   const data = await res.json();
   if (!res.ok) throw new Error(data?.status_message || "ERROR_TMDB");
   return data.results || [];
@@ -330,8 +330,8 @@ async function searchTmdbShows(query) {
 async function searchTmdbMovies(query) {
   const key = getTmdbKey();
   if (!key) throw new Error("NO_TMDB_KEY");
-  const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=es-ES&page=1`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+  const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=es-ES&page=1&api_key=${key}`;
+  const res = await fetch(url);
   const data = await res.json();
   if (!res.ok) throw new Error(data?.status_message || "ERROR_TMDB");
   return data.results || [];
@@ -339,22 +339,22 @@ async function searchTmdbMovies(query) {
 
 async function getTmdbShowDetails(id) {
   const key = getTmdbKey();
-  const url = `https://api.themoviedb.org/3/tv/${id}?language=es-ES`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+  const url = `https://api.themoviedb.org/3/tv/${id}?language=es-ES&api_key=${key}`;
+  const res = await fetch(url);
   return res.json();
 }
 
 async function getTmdbMovieDetails(id) {
   const key = getTmdbKey();
-  const url = `https://api.themoviedb.org/3/movie/${id}?language=es-ES`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+  const url = `https://api.themoviedb.org/3/movie/${id}?language=es-ES&api_key=${key}`;
+  const res = await fetch(url);
   return res.json();
 }
 
 async function getTmdbSeasonEpisodes(showId, seasonNum) {
   const key = getTmdbKey();
-  const url = `https://api.themoviedb.org/3/tv/${showId}/season/${seasonNum}?language=es-ES`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+  const url = `https://api.themoviedb.org/3/tv/${showId}/season/${seasonNum}?language=es-ES&api_key=${key}`;
+  const res = await fetch(url);
   const data = await res.json();
   return (data.episodes || []).map(e => e.runtime).filter(Boolean);
 }
