@@ -510,8 +510,6 @@ function updateProfileUI() {
     var nameEl = document.getElementById("prof-user-name");
     var emailEl = document.getElementById("prof-user-email");
     var avatarBig = document.getElementById("prof-user-avatar");
-    var bioInput = document.getElementById("prof-bio-input");
-    var verifyBanner = document.getElementById("prof-verify-banner");
 
     // social page visibility
     var sLoggedOut = document.getElementById("social-logged-out");
@@ -530,44 +528,43 @@ function updateProfileUI() {
     if (loggedIn) loggedIn.style.display = "block";
     if (nameEl) nameEl.textContent = fbUser.displayName || fbUser.email.split("@")[0];
     if (emailEl) emailEl.textContent = fbUser.email;
+    // hide edit view when re-opening dropdown
+    var editView = document.getElementById("prof-edit-view");
+    if (editView) editView.style.display = "none";
 
-    // load bio and avatar from Firestore
-    if (bioInput || avatarBig) {
-      firebase.firestore().collection("users").doc(fbUser.uid).get().then(function(doc) {
-        if (doc.exists) {
-          var d = doc.data();
-          if (bioInput) bioInput.value = d.bio || "";
-          if (avatarBig && d.avatarUrl) {
-            avatarBig.textContent = "";
-            avatarBig.style.backgroundImage = "url(" + d.avatarUrl + ")";
-            avatarBig.style.backgroundSize = "cover";
-          } else if (avatarBig) {
-            loadGravatarBig(avatarBig);
-          }
-        } else {
-          if (avatarBig) loadGravatarBig(avatarBig);
+    // load profile data from Firestore for edit view
+    var editNameInput = document.getElementById("prof-edit-name-input");
+    var editBio = document.getElementById("prof-edit-bio");
+    var editAvatar = document.getElementById("prof-edit-avatar");
+    firebase.firestore().collection("users").doc(fbUser.uid).get().then(function(doc) {
+      if (doc.exists) {
+        var d = doc.data();
+        if (editNameInput) editNameInput.value = d.displayName || fbUser.displayName || "";
+        if (editBio) editBio.value = d.bio || "";
+        if (editAvatar && d.avatarUrl) {
+          editAvatar.textContent = "";
+          editAvatar.style.backgroundImage = "url(" + d.avatarUrl + ")";
+          editAvatar.style.backgroundSize = "cover";
+        } else if (editAvatar) {
+          loadGravatarBig(editAvatar);
         }
-      }).catch(function() {
-        if (avatarBig) loadGravatarBig(avatarBig);
-      });
-    }
-
-    // email verification banner
-    if (verifyBanner) {
-      if (!fbUser.emailVerified) {
-        verifyBanner.style.display = "block";
-        var sendBtn = document.getElementById("prof-send-verify");
-        if (sendBtn) sendBtn.onclick = function(e) {
-          e.preventDefault();
-          fbUser.sendEmailVerification().then(function() {
-            setStatus(document.getElementById("prof-status"), "Email de verificacin reenviado", "ok");
-          }).catch(function(e) {
-            setStatus(document.getElementById("prof-status"), e.message, "err");
-          });
-        };
       } else {
-        verifyBanner.style.display = "none";
+        if (editAvatar) loadGravatarBig(editAvatar);
       }
+    }).catch(function() {
+      if (editAvatar) loadGravatarBig(editAvatar);
+    });
+    // also load avatar for dropdown user card
+    if (avatarBig) {
+      firebase.firestore().collection("users").doc(fbUser.uid).get().then(function(doc) {
+        if (doc.exists && doc.data().avatarUrl) {
+          avatarBig.textContent = "";
+          avatarBig.style.backgroundImage = "url(" + doc.data().avatarUrl + ")";
+          avatarBig.style.backgroundSize = "cover";
+        } else {
+          loadGravatarBig(avatarBig);
+        }
+      }).catch(function() { loadGravatarBig(avatarBig); });
     }
 
   } else {
@@ -828,22 +825,47 @@ saveState = function() {
     fbSignInWithGoogle();
   });
 
-  var editNameBtn = document.getElementById("prof-edit-name-btn");
-  if (editNameBtn) editNameBtn.addEventListener("click", function() {
-    var input = document.getElementById("prof-edit-name-input");
-    var status = document.getElementById("prof-status");
-    if (!input) return;
-    if (input.style.display === "none" || !input.style.display || input.style.display === "") {
-      input.style.display = "block"; input.value = fbUser.displayName || ""; input.focus(); return;
+  var editBtn = document.getElementById("prof-edit-btn");
+  if (editBtn) editBtn.addEventListener("click", function() {
+    var loggedIn = document.getElementById("prof-logged-in");
+    var editView = document.getElementById("prof-edit-view");
+    if (loggedIn) loggedIn.style.display = "none";
+    if (editView) editView.style.display = "block";
+    // populate edit fields from current data
+    var editNameInput = document.getElementById("prof-edit-name-input");
+    if (editNameInput) editNameInput.value = fbUser.displayName || "";
+  });
+
+  var editCancel = document.getElementById("prof-edit-cancel");
+  if (editCancel) editCancel.addEventListener("click", function() {
+    var loggedIn = document.getElementById("prof-logged-in");
+    var editView = document.getElementById("prof-edit-view");
+    if (loggedIn) loggedIn.style.display = "block";
+    if (editView) editView.style.display = "none";
+  });
+
+  var editSave = document.getElementById("prof-edit-save");
+  if (editSave) editSave.addEventListener("click", async function() {
+    var nameInput = document.getElementById("prof-edit-name-input");
+    var bioInput = document.getElementById("prof-edit-bio");
+    var status = document.getElementById("prof-edit-status");
+    try {
+      var name = nameInput ? nameInput.value.trim() : "";
+      if (name) await fbUpdateDisplayName(name);
+      var bio = bioInput ? bioInput.value.trim() : "";
+      if (bio !== undefined) await fbUpdateBio(bio);
+      if (status) { status.textContent = " Perfil actualizado"; status.style.color = "var(--green)"; }
+      setTimeout(function() {
+        var loggedIn = document.getElementById("prof-logged-in");
+        var editView = document.getElementById("prof-edit-view");
+        if (loggedIn) loggedIn.style.display = "block";
+        if (editView) editView.style.display = "none";
+        if (status) status.textContent = "";
+      }, 1200);
+      updateProfileUI();
+    } catch (e) {
+      if (status) { status.textContent = e.message; status.style.color = "#d32f2f"; }
     }
-    var name = input.value.trim();
-    if (!name) { input.style.display = "none"; return; }
-    fbUpdateDisplayName(name).then(function() {
-      if (status) setStatus(status, " Nombre actualizado", "ok");
-      input.style.display = "none";
-    }).catch(function(e) {
-      if (status) setStatus(status, e.message, "err");
-    });
   });
 
   var logoutBtn = document.getElementById("prof-logout-btn");
@@ -852,23 +874,15 @@ saveState = function() {
     closeProfileDropdown();
   });
 
-  // bio auto-save on blur
-  var bioInput = document.getElementById("prof-bio-input");
-  var bioTimer = null;
-  if (bioInput) bioInput.addEventListener("input", function() {
-    if (bioTimer) clearTimeout(bioTimer);
-    bioTimer = setTimeout(function() {
-      fbUpdateBio(bioInput.value);
-      setStatus(document.getElementById("prof-status"), "Biografa guardada", "ok");
-      setTimeout(function() { setStatus(document.getElementById("prof-status"), "", ""); }, 2000);
-    }, 800);
-  });
-
-  // photo upload
-  var photoInput = document.getElementById("prof-photo-input");
-  if (photoInput) photoInput.addEventListener("change", function() {
-    if (this.files && this.files[0]) handlePhotoUpload(this.files[0]);
-  });
+  // photo upload from either avatar
+  function setupPhotoInput(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("change", function() {
+      if (this.files && this.files[0]) handlePhotoUpload(this.files[0]);
+    });
+  }
+  setupPhotoInput("prof-photo-input");
+  setupPhotoInput("prof-edit-photo-input");
 
   /* ---------- SOCIAL PAGE EVENTS ---------- */
 

@@ -850,25 +850,46 @@
     <!-- LOGGED IN -->
     <div id="prof-logged-in" style="display:none;">
       <div id="prof-user-card" style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.5rem;">
-        <div id="prof-user-avatar" style="width:48px;height:48px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:20px;flex-shrink:0;overflow:hidden;position:relative;">
+        <div id="prof-user-avatar" style="width:48px;height:48px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:20px;flex-shrink:0;overflow:hidden;position:relative;cursor:pointer;" title="Cambiar foto">
           <input type="file" id="prof-photo-input" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
         </div>
         <div style="flex:1;">
-          <div id="prof-user-name" style="font-weight:600;display:inline;"></div>
-          <button id="prof-edit-name-btn" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:11px;padding:0;margin-left:4px;text-decoration:underline;">editar</button>
-          <input id="prof-edit-name-input" type="text" style="display:none;width:100%;margin-top:4px;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:13px;" placeholder="Nuevo nombre" />
+          <div id="prof-user-name" style="font-weight:600;"></div>
           <div id="prof-user-email" style="font-size:12px;color:var(--ink-soft);"></div>
         </div>
       </div>
 
-      <div class="prof-field">
-        <label>Biografía</label>
-        <textarea id="prof-bio-input" rows="2" style="width:100%;resize:none;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:12px;font-family:var(--sans);" placeholder="Cuéntanos algo sobre ti..."></textarea>
-      </div>
+      <button id="prof-edit-btn" style="width:100%;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--accent);cursor:pointer;font-size:12px;">Editar perfil</button>
 
       <hr style="border:none;border-top:1px solid var(--line);margin:0.5rem 0;" />
 
       <button class="danger-link" id="prof-logout-btn" style="width:100%;">Cerrar sesión</button>
+    </div>
+
+    <!-- PROFILE EDIT VIEW -->
+    <div id="prof-edit-view" style="display:none;">
+      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.8rem;">
+        <div id="prof-edit-avatar" style="width:56px;height:56px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:24px;flex-shrink:0;overflow:hidden;position:relative;cursor:pointer;" title="Cambiar foto">
+          <input type="file" id="prof-edit-photo-input" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+        </div>
+        <div style="flex:1;">
+          <div style="font-weight:600;margin-bottom:0.3rem;">Editar perfil</div>
+          <div style="font-size:11px;color:var(--ink-soft);">Haz clic en la foto para cambiarla</div>
+        </div>
+      </div>
+      <div class="prof-field">
+        <label>Nombre</label>
+        <input type="text" id="prof-edit-name-input" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:13px;" placeholder="Tu nombre" />
+      </div>
+      <div class="prof-field">
+        <label>Biografía</label>
+        <textarea id="prof-edit-bio" rows="2" style="width:100%;resize:none;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:12px;font-family:var(--sans);" placeholder="Cuéntanos algo sobre ti..."></textarea>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+        <button id="prof-edit-save" style="flex:1;padding:0.4rem;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;">Guardar cambios</button>
+        <button id="prof-edit-cancel" style="flex:1;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:13px;">Cancelar</button>
+      </div>
+      <p class="status-msg" id="prof-edit-status"></p>
     </div> 
   </div>
 </div>
