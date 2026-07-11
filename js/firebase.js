@@ -746,7 +746,7 @@ async function showRichProfile(friendId, isSelf) {
     }).join("");
   document.getElementById("fm-langs").innerHTML = langHtml;
 
-  // weekly chart — taller bars
+  // weekly chart — bigger bars
   console.log("showRichProfile: weekly data", profile.weekly);
   var chartEl = document.getElementById("fm-chart");
   if (chartEl) {
@@ -755,14 +755,15 @@ async function showRichProfile(friendId, isSelf) {
     if (daysArr.length === 0) {
       chartEl.innerHTML = '<p style="margin:0;font-size:11px;color:var(--ink-soft);">Sin datos esta semana</p>';
     } else {
-      chartEl.style.height = "80px";
+      chartEl.style.height = "100px";
+      chartEl.style.gap = "6px";
       chartEl.innerHTML = daysArr.map(function(d) {
         var raw = d.minutes / maxVal;
         var pct = Math.max(raw * 100, raw > 0 ? 8 : 3);
-        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:80px;justify-content:flex-end;">' +
-          '<div style="font-size:9px;color:var(--ink-soft);margin-bottom:3px;font-family:var(--mono);">' + (d.minutes > 0 ? d.minutes + "m" : "") + '</div>' +
-          '<div style="width:100%;max-width:32px;height:' + pct + '%;min-height:3px;border-radius:4px 4px 0 0;background:var(--accent);opacity:' + (d.minutes > 0 ? "1" : "0.2") + ';"></div>' +
-          '<div style="font-size:9px;color:var(--ink-soft);margin-top:3px;">' + d.label + '</div></div>';
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:100px;justify-content:flex-end;">' +
+          '<div style="font-size:10px;color:var(--ink-soft);margin-bottom:4px;font-family:var(--mono);">' + (d.minutes > 0 ? d.minutes + "m" : "") + '</div>' +
+          '<div style="width:100%;max-width:48px;height:' + pct + '%;min-height:4px;border-radius:4px 4px 0 0;background:var(--accent);opacity:' + (d.minutes > 0 ? "1" : "0.2") + ';"></div>' +
+          '<div style="font-size:10px;color:var(--ink-soft);margin-top:4px;">' + d.label + '</div></div>';
       }).join("");
     }
   }
@@ -793,7 +794,7 @@ async function showRichProfile(friendId, isSelf) {
       spacer.style.width = "24px";
       monthRow.appendChild(spacer);
       var labelsContainer = document.createElement("div");
-      labelsContainer.style.cssText = "display:flex;flex:1;gap:1px;";
+      labelsContainer.style.cssText = "display:flex;flex:1;gap:3px;";
       monthRow.appendChild(labelsContainer);
       inner.appendChild(monthRow);
       // body
@@ -808,7 +809,7 @@ async function showRichProfile(friendId, isSelf) {
       body.appendChild(dayLabels);
       var columns = document.createElement("div");
       columns.className = "heatmap-columns";
-      columns.style.gap = "1px";
+      columns.style.gap = "3px";
       body.appendChild(columns);
       inner.appendChild(body);
       // columns
@@ -825,7 +826,7 @@ async function showRichProfile(friendId, isSelf) {
         labelsContainer.appendChild(labelEl);
         var col = document.createElement("div");
         col.className = "heatmap-col";
-        col.style.gap = "1px";
+        col.style.gap = "3px";
         for (var d = 0; d < 7; d++) {
           var date = new Date(startDate);
           date.setDate(date.getDate() + w * 7 + d);
