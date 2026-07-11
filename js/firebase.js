@@ -761,7 +761,12 @@ async function showRichProfile(friendId, isSelf) {
         var raw = d.minutes / maxVal;
         var pct = Math.max(raw * 100, raw > 0 ? 8 : 3);
         return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:100px;justify-content:flex-end;">' +
-          '<div style="font-size:10px;color:var(--ink-soft);margin-bottom:4px;font-family:var(--mono);">' + (d.minutes > 0 ? d.minutes + "m" : "") + '</div>' +
+          '<div style="font-size:10px;color:var(--ink-soft);margin-bottom:4px;font-family:var(--mono);">' +           (function(mins) {
+            if (mins <= 0) return "";
+            var h = Math.floor(mins / 60);
+            var m = mins % 60;
+            return h > 0 ? h + "h" + (m > 0 ? " " + m + "m" : "") : m + "m";
+          })(d.minutes) + '</div>' +
           '<div style="width:100%;max-width:48px;height:' + pct + '%;min-height:4px;border-radius:4px 4px 0 0;background:var(--accent);opacity:' + (d.minutes > 0 ? "1" : "0.2") + ';"></div>' +
           '<div style="font-size:10px;color:var(--ink-soft);margin-top:4px;">' + d.label + '</div></div>';
       }).join("");
@@ -882,7 +887,8 @@ async function showRichProfile(friendId, isSelf) {
         var hours = Math.floor((diff % 86400000) / 3600000);
         timeAgo = '<span style="color:var(--ink-soft);font-size:10px;font-family:var(--mono);margin-left:0.4rem;">' + (days > 0 ? days + "d" : hours + "h") + '</span>';
       }
-      return '<div style="display:flex;align-items:center;padding:0.3rem 0;border-bottom:1px solid var(--line);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;color:var(--ink);">' + s.note + '</span><span style="display:flex;align-items:center;flex-shrink:0;">' + langBadge + '<span style="font-family:var(--mono);color:var(--ink-soft);margin-left:0.4rem;font-size:11px;">' + mins + 'm</span>' + timeAgo + '</span></div>';
+      var fmt = mins > 0 ? (function(h,m){return h?h+"h"+(m?" "+m+"m":""):m+"m"})(Math.floor(mins/60), mins%60) : "—";
+      return '<div style="display:flex;align-items:center;padding:0.3rem 0;border-bottom:1px solid var(--line);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;color:var(--ink);">' + s.note + '</span><span style="display:flex;align-items:center;flex-shrink:0;">' + langBadge + '<span style="font-family:var(--mono);color:var(--ink-soft);margin-left:0.4rem;font-size:11px;">' + fmt + '</span>' + timeAgo + '</span></div>';
     }).join("");
   document.getElementById("fm-recent").innerHTML = recentHtml;
 
