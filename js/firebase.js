@@ -743,11 +743,12 @@ async function loadSocialFriendsList() {
     var mins = f.totalMinutes % 60;
     var isSelf = f.isSelf;
     var nameLabel = f.displayName + (isSelf ? ' <span style="color:var(--ink-soft);font-weight:400;font-size:11px;">(t&uacute;)</span>' : '');
-    var bg = isSelf ? 'var(--accent)' : 'var(--surface2)';
-    var color = isSelf ? '#fff' : 'var(--ink-soft)';
+    var rankColors = ['#d4a017', '#a8a8a8', '#cd7f32']; // gold, silver, bronze
+    var rankBg = i < 3 ? rankColors[i] : (isSelf ? 'var(--accent)' : 'var(--surface2)');
+    var rankColor = i < 3 ? '#fff' : (isSelf ? '#fff' : 'var(--ink-soft)');
     var rowBg = isSelf ? 'var(--accent-soft)' : '';
     return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0.6rem;border-bottom:1px solid var(--line);font-size:13px;' + (rowBg ? 'background:' + rowBg + ';border-radius:6px;' : '') + '" data-id="' + f.id + '">' +
-      '<span style="width:22px;height:22px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:' + color + ';' + (isSelf ? '' : 'cursor:pointer;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + (i + 1) + '</span>' +
+      '<span style="width:22px;height:22px;border-radius:50%;background:' + rankBg + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:' + rankColor + ';' + (isSelf ? '' : 'cursor:pointer;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + (i + 1) + '</span>' +
       '<span style="flex:1;' + (isSelf ? '' : 'cursor:pointer;color:var(--accent);font-weight:500;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + nameLabel + '</span>' +
       '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;text-align:right;min-width:4.5rem;">' + hours + 'h ' + mins + 'm</span>' +
       '</div>';
