@@ -186,10 +186,6 @@
   .prof-accent-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .prof-accent-btn { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; transition: transform 0.1s; }
   .prof-accent-btn:hover { transform: scale(1.12); opacity: 1; }
-  .prof-preview { display: flex; align-items: center; gap: 0.7rem; background: var(--surface2); border: 1px solid var(--line); border-radius: 12px; padding: 0.7rem 0.8rem; margin-bottom: 0.7rem; }
-  .prof-preview-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--green); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 19px; font-family: var(--serif); flex-shrink: 0; background-size: cover; background-position: center; border: 2px solid var(--accent); }
-  .prof-preview-name { font-family: var(--serif); font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .prof-preview-bio { font-size: 11px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .prof-acct-card { background: var(--surface2); border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem; margin-bottom: 0.6rem; }
   .prof-acct-card .prof-field-icon:last-of-type { margin-bottom: 0.7rem; }
   .prof-acc-item { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.65rem 0.7rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface2); color: var(--ink); cursor: pointer; font-size: 13px; font-weight: 600; font-family: var(--sans); text-align: left; margin-bottom: 0.5rem; }
@@ -1071,13 +1067,6 @@
       <div class="prof-sub-head">
         <button class="prof-sub-back" id="prof-edit-back" aria-label="Volver">‹</button>
         <span class="prof-sub-title">Editar perfil</span>
-      </div>
-      <div class="prof-preview" aria-hidden="true">
-        <div id="prof-prev-avatar" class="prof-preview-avatar">?</div>
-        <div style="flex:1;min-width:0;">
-          <div id="prof-prev-name" class="prof-preview-name">Tu nombre</div>
-          <div id="prof-prev-bio" class="prof-preview-bio">Tu biografía aparecerá aquí.</div>
-        </div>
       </div>
       <div class="prof-edit-avatar-wrap">
         <div id="prof-edit-avatar" class="prof-edit-avatar" title="Cambiar foto">

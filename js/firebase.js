@@ -1551,7 +1551,6 @@ function handlePhotoUploadDataUrl(dataUrl) {
   if (navIcon) navIcon.style.display = "none";
   firebase.firestore().collection("users").doc(fbUser.uid).set({ avatarBase64: dataUrl }, { merge: true }).then(function() {
     updateProfileUI();
-    try { syncEditPreview(); } catch (e) {}
     setSyncStatus("Foto actualizada");
     setTimeout(function() { setSyncStatus(""); }, 2000);
   }).catch(function(e) {
@@ -1804,7 +1803,6 @@ saveState = function() {
     // populate edit fields from current data
     var editNameInput = document.getElementById("prof-edit-name-input");
     if (editNameInput) editNameInput.value = fbUser.displayName || "";
-    syncEditPreview();
   });
 
   ["prof-edit-cancel", "prof-edit-back"].forEach(function(id) {
@@ -1817,23 +1815,6 @@ saveState = function() {
     });
   });
 
-  // vista previa en vivo del perfil editado
-  function syncEditPreview() {
-    var n = document.getElementById("prof-edit-name-input");
-    var b = document.getElementById("prof-edit-bio");
-    var pn = document.getElementById("prof-prev-name");
-    var pb = document.getElementById("prof-prev-bio");
-    var pa = document.getElementById("prof-prev-avatar");
-    if (pn) pn.textContent = (n && n.value.trim()) || "Tu nombre";
-    if (pb) pb.textContent = (b && b.value.trim()) || "Tu biografía aparecerá aquí.";
-    if (pa) {
-      var ea = document.getElementById("prof-edit-avatar");
-      var bg = (ea && ea.style.backgroundImage) || "";
-      if (bg) { pa.style.backgroundImage = bg; pa.style.backgroundSize = "cover"; pa.textContent = ""; }
-      else { pa.style.backgroundImage = ""; pa.textContent = ((n && n.value.trim()) || "?")[0].toUpperCase(); }
-    }
-  }
-
   // accent color picker
   document.querySelectorAll(".prof-accent-btn").forEach(function(btn) {
     btn.addEventListener("click", function() {
@@ -1844,7 +1825,6 @@ saveState = function() {
       if (fbUser) {
         firebase.firestore().collection("users").doc(fbUser.uid).update({ accentColor: color }).catch(function() {});
       }
-      try { syncEditPreview(); } catch (e) {}
     });
   });
 
@@ -2007,10 +1987,6 @@ saveState = function() {
   }
   bindCount("prof-edit-name-input", "prof-name-count");
   bindCount("prof-edit-bio", "prof-bio-count");
-  ["prof-edit-name-input", "prof-edit-bio"].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.addEventListener("input", syncEditPreview);
-  });
 
   // eliminar cuenta (zona de peligro en Config)
   var delBtn = document.getElementById("delete-account-btn");
