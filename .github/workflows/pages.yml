@@ -34,7 +34,7 @@ jobs:
         env:
           FIREBASE_CONFIG_JSON: ${{ secrets.FIREBASE_CONFIG_JSON }}
         run: |
-          node -e "const fs=require('fs');let h=fs.readFileSync('index.html','utf8');const c=process.env.FIREBASE_CONFIG_JSON;if(c){const safe=String(c).replace(/<\//g,'<\\/');h=h.replace('/*__FIREBASE_CONFIG_JSON__*/null',()=>safe);h=h.replace(/<script src=\"js\/firebase-config\.js\"><\/script>\n?/,'');fs.writeFileSync('index.html',h);console.log('config injected inline, external tag removed');}else{console.log('No FIREBASE_CONFIG_JSON secret: deploying without cloud login');}"
+          node -e "const fs=require('fs');let h=fs.readFileSync('index.html','utf8');const c=process.env.FIREBASE_CONFIG_JSON;console.log('secret length:',(c||'').length);if(c){if(!h.includes('/*__FIREBASE_CONFIG_JSON__*/null')){console.error('PLACEHOLDER NOT FOUND');process.exit(1);}const safe=String(c).replace(/<\//g,'<\\/');h=h.replace('/*__FIREBASE_CONFIG_JSON__*/null',()=>safe);h=h.replace(/<script src=\"js\/firebase-config\.js\"><\/script>\n?/,'');h=h.replace('</body>',()=>'<!-- deploy ${GITHUB_SHA} run ${GITHUB_RUN_ID} -->\n</body>');fs.writeFileSync('index.html',h);if(h.includes('__FIREBASE_CONFIG_JSON__')){console.error('INJECTION FAILED');process.exit(1);}console.log('config injected inline, external tag removed');}else{console.log('No FIREBASE_CONFIG_JSON secret: deploying without cloud login');}"
 
       - uses: actions/configure-pages@v5
 
