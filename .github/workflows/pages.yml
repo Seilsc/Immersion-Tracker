@@ -27,18 +27,14 @@ jobs:
             node --check "$f" && echo "OK $f"
           done
 
-      # Genera js/firebase-config.js desde el secreto (nunca se commitea).
+      # Inyecta la config DENTRO de index.html (sin peticiones extra que puedan
+      # fallar) y elimina el <script> del archivo local. Nunca se commitea.
       # Sin el secreto, la web se despliega igual pero sin login en la nube.
-      - name: Inject firebase config from secret
+      - name: Inject firebase config inline
         env:
           FIREBASE_CONFIG_JSON: ${{ secrets.FIREBASE_CONFIG_JSON }}
         run: |
-          if [ -n "$FIREBASE_CONFIG_JSON" ]; then
-            printf 'window.FIREBASE_CONFIG = %s;\n' "$FIREBASE_CONFIG_JSON" > js/firebase-config.js
-            echo "firebase-config.js generated from secret"
-          else
-            echo "No FIREBASE_CONFIG_JSON secret: deploying without cloud login"
-          fi
+          node -e "const fs=require('fs');let h=fs.readFileSync('index.html','utf8');const c=process.env.FIREBASE_CONFIG_JSON;if(c){const safe=String(c).replace(/<\//g,'<\\/');h=h.replace('/*__FIREBASE_CONFIG_JSON__*/null',()=>safe);h=h.replace(/<script src=\"js\/firebase-config\.js\"><\/script>\n?/,'');fs.writeFileSync('index.html',h);console.log('config injected inline, external tag removed');}else{console.log('No FIREBASE_CONFIG_JSON secret: deploying without cloud login');}"
 
       - uses: actions/configure-pages@v5
 

@@ -1947,7 +1947,9 @@
 <script src="js/ui.js"></script>
 <script src="js/pages.js"></script>
 <script src="js/tools.js"></script>
-<!-- Opcional y local (no existe en clones frescos; el 404 es inofensivo): aporta window.FIREBASE_CONFIG -->
+<!-- Config de nube: en local la aporta js/firebase-config.js (gitignored);
+     en GitHub Pages la inyecta el workflow dentro de este script. -->
+<script>window.FIREBASE_CONFIG = /*__FIREBASE_CONFIG_JSON__*/null;</script>
 <script src="js/firebase-config.js"></script>
 <script src="js/firebase.js"></script>
 <script src="js/achievements.js"></script>

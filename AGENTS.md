@@ -58,7 +58,7 @@ No OAuth, no Firebase, no auth in the extension. It only detects language + watc
 
 ## Deployment
 
-`git push origin main` → GitHub Actions (`.github/workflows/pages.yml`) → GitHub Pages (`https://seilsc.github.io/Immersion-Tracker/`). CI runs `node --check` on all JS and generates `js/firebase-config.js` from the `FIREBASE_CONFIG_JSON` repo secret (never committed); without the secret it deploys without cloud login. `firebase.json` + `.firebaserc` (project `immersion-tracker-languages`) exist but Pages is the live site.
+`git push origin main` → GitHub Actions (`.github/workflows/pages.yml`) → GitHub Pages (`https://seilsc.github.io/Immersion-Tracker/`). CI runs `node --check` on all JS and injects the `FIREBASE_CONFIG_JSON` repo secret inline into `index.html` (never committed); without the secret it deploys without cloud login. `firebase.json` + `.firebaserc` (project `immersion-tracker-languages`) exist but Pages is the live site.
 
 ## Conventions & quirks
 
