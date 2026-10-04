@@ -1101,7 +1101,8 @@ function updateProfileUI() {
         } else if (editAvatar) {
           loadGravatarBig(editAvatar);
         }
-        // highlight selected accent color
+        // highlight selected accent color (+ remember saved for cancel-revert)
+        window._savedAccent = d.accentColor || null;
         if (d.accentColor) {
           applyAccentColor(d.accentColor);
           document.querySelectorAll(".prof-accent-btn").forEach(function(b) {
@@ -1192,7 +1193,10 @@ async function showRichProfile(friendId, isSelf) {
   var langsPill = document.getElementById("fm-pill-langs");
   if (langsPill) langsPill.textContent = profile.hidden.languages ? "" : ((profile.languages || []).length + ((profile.languages || []).length === 1 ? " idioma" : " idiomas"));
   var streakPill = document.getElementById("fm-pill-streak");
-  if (streakPill) streakPill.textContent = profile.hidden.streak ? "" : ("Racha: " + (profile.streak ? profile.streak.current : 0) + " días");
+  if (streakPill) {
+    streakPill.textContent = profile.hidden.streak ? "" : ("Racha: " + (profile.streak ? profile.streak.current : 0) + " días");
+    streakPill.classList.toggle("hot", !profile.hidden.streak && profile.streak && profile.streak.current > 0);
+  }
   var avatarEl = document.getElementById("fm-avatar");
   if (profile.avatarBase64) {
     avatarEl.style.backgroundImage = "url(" + profile.avatarBase64 + ")";
@@ -1206,7 +1210,7 @@ async function showRichProfile(friendId, isSelf) {
     var heroAcc = isOwn
       ? ((getComputedStyle(document.documentElement).getPropertyValue("--accent") || "").trim() || "#b3502e")
       : (profile.accentColor || "#2f5d4f");
-    heroEl.style.background = "linear-gradient(135deg," + heroAcc + "," + heroAcc + "55)";
+    heroEl.style.setProperty("--fm-accent", heroAcc);
   }
 
   // stats cards — 3 per row
@@ -1556,6 +1560,7 @@ function handlePhotoUploadDataUrl(dataUrl) {
   if (navIcon) navIcon.style.display = "none";
   firebase.firestore().collection("users").doc(fbUser.uid).set({ avatarBase64: dataUrl }, { merge: true }).then(function() {
     updateProfileUI();
+    try { syncEditPreview(); } catch (e) {}
     setSyncStatus("Foto actualizada");
     setTimeout(function() { setSyncStatus(""); }, 2000);
   }).catch(function(e) {
@@ -1808,17 +1813,45 @@ saveState = function() {
     // populate edit fields from current data
     var editNameInput = document.getElementById("prof-edit-name-input");
     if (editNameInput) editNameInput.value = fbUser.displayName || "";
+    syncEditPreview();
   });
 
   ["prof-edit-cancel", "prof-edit-back"].forEach(function(id) {
     var btn = document.getElementById(id);
     if (btn) btn.addEventListener("click", function() {
+      // revertir acento no guardado
+      if (window._pendingAccent) {
+        if (window._savedAccent) applyAccentColor(window._savedAccent);
+        else {
+          document.documentElement.style.removeProperty("--accent");
+          document.documentElement.style.removeProperty("--accent-soft");
+          try { localStorage.removeItem("immersion-accent"); } catch (e) {}
+        }
+        window._pendingAccent = null;
+      }
       var loggedIn = document.getElementById("prof-logged-in");
       var editView = document.getElementById("prof-edit-view");
       if (loggedIn) loggedIn.style.display = "block";
       if (editView) editView.style.display = "none";
     });
   });
+
+  // vista previa en vivo del perfil editado
+  function syncEditPreview() {
+    var n = document.getElementById("prof-edit-name-input");
+    var b = document.getElementById("prof-edit-bio");
+    var pn = document.getElementById("prof-prev-name");
+    var pb = document.getElementById("prof-prev-bio");
+    var pa = document.getElementById("prof-prev-avatar");
+    if (pn) pn.textContent = (n && n.value.trim()) || "Tu nombre";
+    if (pb) pb.textContent = (b && b.value.trim()) || "Tu biografía aparecerá aquí.";
+    if (pa) {
+      var ea = document.getElementById("prof-edit-avatar");
+      var bg = (ea && ea.style.backgroundImage) || "";
+      if (bg) { pa.style.backgroundImage = bg; pa.style.backgroundSize = "cover"; pa.textContent = ""; }
+      else { pa.style.backgroundImage = ""; pa.textContent = ((n && n.value.trim()) || "?")[0].toUpperCase(); }
+    }
+  }
 
   // accent color picker
   document.querySelectorAll(".prof-accent-btn").forEach(function(btn) {
@@ -1827,6 +1860,8 @@ saveState = function() {
       document.querySelectorAll(".prof-accent-btn").forEach(function(b) { b.style.borderColor = "transparent"; });
       this.style.borderColor = "var(--accent)";
       window._pendingAccent = color;
+      applyAccentColor(color); // vista previa inmediata (se confirma al guardar)
+      syncEditPreview();
     });
   });
 
@@ -1923,7 +1958,17 @@ saveState = function() {
     }
   });
 
-  // reset password for own account (menu item while logged in)
+  // account accordion (password / email blocks)
+  [["prof-acc-pass-toggle", "prof-acc-pass-body"], ["prof-acc-email-toggle", "prof-acc-email-body"]].forEach(function(pair) {
+    var t = document.getElementById(pair[0]);
+    var b = document.getElementById(pair[1]);
+    if (t && b) t.addEventListener("click", function() {
+      var open = b.classList.toggle("open");
+      t.classList.toggle("open", open);
+    });
+  });
+
+  // reset password for own account (inside account view)
   var resetBtn = document.getElementById("prof-reset-btn");
   if (resetBtn) resetBtn.addEventListener("click", async function() {
     var label = resetBtn.querySelector(".grow");
@@ -1984,6 +2029,10 @@ saveState = function() {
   }
   bindCount("prof-edit-name-input", "prof-name-count");
   bindCount("prof-edit-bio", "prof-bio-count");
+  ["prof-edit-name-input", "prof-edit-bio"].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("input", syncEditPreview);
+  });
 
   // eliminar cuenta (zona de peligro en Config)
   var delBtn = document.getElementById("delete-account-btn");
