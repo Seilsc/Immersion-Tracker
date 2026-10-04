@@ -154,6 +154,39 @@
   .prof-menu-item.danger:hover { background: var(--accent-soft); }
   .prof-menu-sep { border: none; border-top: 1px solid var(--line); margin: 0.5rem 0; }
 
+  /* AUTH (logged-out, mismo lenguaje que el menú) */
+  .prof-auth-head { margin-bottom: 0.9rem; }
+  .prof-auth-title { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; }
+  .prof-auth-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .prof-field-icon { display: flex; align-items: center; gap: 0.55rem; padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface2); margin-bottom: 0.5rem; transition: border-color 0.15s; }
+  .prof-field-icon:focus-within { border-color: var(--accent); }
+  .prof-field-icon .ic { color: var(--ink-soft); flex-shrink: 0; }
+  .prof-field-icon input { border: none; background: transparent; padding: 0; font-size: 13px; }
+  .prof-field-icon input:focus { outline: none; }
+  .prof-field-icon input::placeholder { color: var(--ink-soft); opacity: 0.7; }
+  .prof-pass-toggle { background: transparent; border: none; color: var(--ink-soft); cursor: pointer; padding: 2px; display: flex; flex-shrink: 0; }
+  .prof-pass-toggle:hover { color: var(--ink); opacity: 1; }
+  .prof-auth-primary { width: 100%; margin-top: 0.35rem; padding: 0.6rem; font-size: 13px; }
+  .prof-auth-links { display: flex; align-items: center; justify-content: space-between; margin-top: 0.55rem; }
+  .prof-link { background: transparent; border: none; color: var(--ink-soft); font-size: 12px; cursor: pointer; padding: 0.2rem 0; font-family: var(--sans); }
+  .prof-link:hover { color: var(--accent); opacity: 1; }
+  .prof-auth-sep { display: flex; align-items: center; gap: 0.6rem; margin: 0.8rem 0; color: var(--ink-soft); font-size: 11px; font-family: var(--mono); }
+  .prof-auth-sep::before, .prof-auth-sep::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+  .prof-auth-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.55rem; padding: 0.55rem; border: 1px solid var(--line); border-radius: 10px; background: transparent; color: var(--ink); cursor: pointer; font-size: 13px; font-weight: 500; font-family: var(--sans); }
+  .prof-auth-google:hover { background: var(--bg); opacity: 1; }
+
+  /* SUB-VISTAS (editar perfil / cuenta) */
+  .prof-sub-head { display: flex; align-items: center; gap: 0.2rem; margin-bottom: 0.8rem; }
+  .prof-sub-back { background: transparent; border: none; color: var(--ink-soft); cursor: pointer; font-size: 20px; padding: 0 0.35rem 0 0; line-height: 1; }
+  .prof-sub-back:hover { color: var(--ink); opacity: 1; }
+  .prof-sub-title { font-weight: 600; font-size: 14px; }
+  .prof-section-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); margin: 0.9rem 0 0.45rem; }
+  .prof-edit-avatar-wrap { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.4rem; }
+  .prof-edit-avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--green); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 24px; flex-shrink: 0; overflow: hidden; position: relative; cursor: pointer; background-size: cover; background-position: center; border: 2px solid var(--accent-soft); }
+  .prof-accent-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .prof-accent-btn { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; transition: transform 0.1s; }
+  .prof-accent-btn:hover { transform: scale(1.12); opacity: 1; }
+
   /* ACHIEVEMENT ICONS */
   .ach-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); color: var(--gold); flex-shrink: 0; }
   .ach-icon svg { width: 20px; height: 20px; display: block; }
@@ -862,22 +895,33 @@
   <div id="profile-dropdown-body">
     <!-- LOGGED OUT -->
     <div id="prof-logged-out">
-      <div class="prof-field"><label for="prof-name">Nombre</label><input type="text" id="prof-name" placeholder="Tu nombre" /></div>
-      <div class="prof-field"><label for="prof-email">Email</label><input type="email" id="prof-email" placeholder="correo@ejemplo.com" /></div>
-      <div class="prof-field"><label for="prof-pass">Contraseña</label><input type="password" id="prof-pass" placeholder="mín. 6 caracteres" /></div>
-      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
-        <button id="prof-signup-btn" style="flex:1;">Crear cuenta</button>
-        <button class="secondary" id="prof-login-btn" style="flex:1;">Iniciar sesión</button>
+      <div class="prof-auth-head">
+        <div class="prof-auth-title">Bienvenido</div>
+        <div class="prof-auth-sub">Inicia sesión para sincronizar y jugar con amigos.</div>
       </div>
-      <div style="margin-top:0.4rem;text-align:center;">
-        <button class="danger-link" id="prof-forgot-btn">¿Olvidaste tu contraseña?</button>
+      <div class="prof-field-icon">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+        <input type="text" id="prof-name" placeholder="Tu nombre (solo al crear cuenta)" autocomplete="username" aria-label="Nombre" />
       </div>
-      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--line);">
-        <button id="prof-google-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.5rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:13px;font-family:var(--sans);">
-          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-          Continuar con Google
-        </button>
+      <div class="prof-field-icon">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg></span>
+        <input type="email" id="prof-email" placeholder="Correo electrónico" autocomplete="email" aria-label="Email" />
       </div>
+      <div class="prof-field-icon">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+        <input type="password" id="prof-pass" placeholder="Contraseña" autocomplete="current-password" aria-label="Contraseña" />
+        <button class="prof-pass-toggle" id="prof-pass-toggle" title="Mostrar contraseña" aria-label="Mostrar contraseña"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+      <button id="prof-login-btn" class="prof-auth-primary">Iniciar sesión</button>
+      <div class="prof-auth-links">
+        <button class="prof-link" id="prof-signup-btn">Crear cuenta</button>
+        <button class="prof-link" id="prof-forgot-btn">¿Olvidaste tu contraseña?</button>
+      </div>
+      <div class="prof-auth-sep"><span>o</span></div>
+      <button id="prof-google-btn" class="prof-auth-google">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continuar con Google
+      </button>
       <p class="status-msg" id="prof-status"></p>
     </div>
     <!-- LOGGED IN -->
@@ -903,7 +947,6 @@
         <button id="prof-view-profile-btn" class="prof-menu-item"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="grow">Ver mi perfil</span><span class="prof-menu-chev">›</span></button>
         <button id="prof-edit-btn" class="prof-menu-item"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="grow">Editar perfil</span><span class="prof-menu-chev">›</span></button>
         <button id="prof-account-btn" class="prof-menu-item"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><span class="grow">Cuenta y seguridad</span><span class="prof-menu-chev">›</span></button>
-        <button id="prof-reset-btn" class="prof-menu-item"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg></span><span class="grow">Restablecer contraseña</span></button>
       </nav>
       <hr class="prof-menu-sep" />
       <button id="prof-logout-btn" class="prof-menu-item danger"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><path d="M21 12H9"/></svg></span><span class="grow">Cerrar sesión</span></button>
@@ -911,68 +954,75 @@
 
     <!-- ACCOUNT VIEW -->
     <div id="prof-account-view" style="display:none;">
-      <div style="font-weight:600;margin-bottom:0.6rem;">Cuenta y seguridad</div>
-      <div class="prof-field">
-        <label for="prof-pass-current">Contraseña actual</label>
-        <input type="password" id="prof-pass-current" placeholder="••••••" autocomplete="current-password" />
+      <div class="prof-sub-head">
+        <button class="prof-sub-back" id="prof-account-back" aria-label="Volver">‹</button>
+        <span class="prof-sub-title">Cuenta y seguridad</span>
       </div>
-      <div class="prof-field">
-        <label for="prof-pass-new">Nueva contraseña</label>
-        <input type="password" id="prof-pass-new" placeholder="mín. 6 caracteres" autocomplete="new-password" />
+      <div id="prof-pass-section">
+        <div class="prof-section-label">Cambiar contraseña</div>
+        <div class="prof-field">
+          <label for="prof-pass-current">Contraseña actual</label>
+          <input type="password" id="prof-pass-current" placeholder="••••••" autocomplete="current-password" />
+        </div>
+        <div class="prof-field">
+          <label for="prof-pass-new">Nueva contraseña</label>
+          <input type="password" id="prof-pass-new" placeholder="mín. 6 caracteres" autocomplete="new-password" />
+        </div>
+        <div class="prof-field">
+          <label for="prof-pass-repeat">Repite la nueva</label>
+          <input type="password" id="prof-pass-repeat" placeholder="repite la nueva" autocomplete="new-password" />
+        </div>
+        <button id="prof-pass-save" class="prof-auth-primary">Cambiar contraseña</button>
+        <div class="prof-section-label">¿No recuerdas la actual?</div>
+        <button id="prof-reset-btn" class="secondary" style="width:100%;padding:0.45rem;"><span class="grow">Enviar email de restablecimiento</span></button>
       </div>
-      <div class="prof-field">
-        <label for="prof-pass-repeat">Repite la nueva</label>
-        <input type="password" id="prof-pass-repeat" placeholder="repite la nueva" autocomplete="new-password" />
-      </div>
-      <button id="prof-pass-save" style="width:100%;padding:0.4rem;margin-bottom:0.8rem;">Cambiar contraseña</button>
+      <div class="prof-section-label">Email</div>
       <div class="prof-field">
         <label for="prof-new-email">Cambiar email</label>
         <input type="email" id="prof-new-email" placeholder="nuevo@ejemplo.com" autocomplete="email" />
       </div>
-      <button id="prof-email-save" class="secondary" style="width:100%;padding:0.4rem;">Cambiar email (pide verificación)</button>
+      <button id="prof-email-save" class="secondary" style="width:100%;padding:0.45rem;">Cambiar email (pide verificación)</button>
       <p class="status-msg" id="prof-account-status"></p>
-      <button id="prof-account-back" class="secondary" style="width:100%;padding:0.4rem;">← Volver</button>
     </div>
 
     <!-- PROFILE EDIT VIEW -->
     <div id="prof-edit-view" style="display:none;">
-      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.8rem;">
-        <div id="prof-edit-avatar" style="width:56px;height:56px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:24px;flex-shrink:0;overflow:hidden;position:relative;cursor:pointer;" title="Cambiar foto">
+      <div class="prof-sub-head">
+        <button class="prof-sub-back" id="prof-edit-back" aria-label="Volver">‹</button>
+        <span class="prof-sub-title">Editar perfil</span>
+      </div>
+      <div class="prof-edit-avatar-wrap">
+        <div id="prof-edit-avatar" class="prof-edit-avatar" title="Cambiar foto">
           <input type="file" id="prof-edit-photo-input" accept="image/*" aria-label="Cambiar foto" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;position:relative;z-index:1;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </div>
         <div style="flex:1;">
-          <div style="font-weight:600;margin-bottom:0.3rem;">Editar perfil</div>
+          <button id="prof-photo-remove" class="prof-link" style="color:var(--accent);">Quitar foto</button>
+          <div style="font-size:11px;color:var(--ink-soft);">Pulsa la foto para cambiarla.</div>
         </div>
       </div>
-      <button id="prof-photo-remove" class="danger-link" style="width:100%;margin-bottom:0.4rem;">Quitar foto</button>
       <div class="prof-field">
         <label for="prof-edit-name-input">Nombre</label>
-          <input type="text" id="prof-edit-name-input" maxlength="40" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:13px;" placeholder="Tu nombre" />
+          <input type="text" id="prof-edit-name-input" maxlength="40" placeholder="Tu nombre" />
           <div style="font-size:10px;color:var(--ink-soft);text-align:right;"><span id="prof-name-count">0</span>/40</div>
       </div>
       <div class="prof-field">
         <label for="prof-edit-bio">Biografía</label>
-          <textarea id="prof-edit-bio" rows="2" maxlength="300" style="width:100%;resize:none;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:12px;font-family:var(--sans);" placeholder="Cuéntanos algo sobre ti..."></textarea>
+          <textarea id="prof-edit-bio" rows="2" maxlength="300" style="resize:none;font-size:12px;font-family:var(--sans);" placeholder="Cuéntanos algo sobre ti..."></textarea>
           <div style="font-size:10px;color:var(--ink-soft);text-align:right;"><span id="prof-bio-count">0</span>/300</div>
       </div>
-      <div class="prof-field">
-        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:0.3rem;">Color de acento</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;" role="radiogroup" aria-label="Color de acento">
-          <button class="prof-accent-btn" data-color="#b3502e" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#b3502e;cursor:pointer;" title="Terracota"></button>
-          <button class="prof-accent-btn" data-color="#2f5d4f" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#2f5d4f;cursor:pointer;" title="Verde"></button>
-          <button class="prof-accent-btn" data-color="#2d4f8a" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#2d4f8a;cursor:pointer;" title="Azul"></button>
-          <button class="prof-accent-btn" data-color="#5c3d8a" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#5c3d8a;cursor:pointer;" title="Prpura"></button>
-          <button class="prof-accent-btn" data-color="#8a6d2d" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#8a6d2d;cursor:pointer;" title="Dorado"></button>
-          <button class="prof-accent-btn" data-color="#c0392b" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#c0392b;cursor:pointer;" title="Rojo"></button>
-          <button class="prof-accent-btn" data-color="#2980b9" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#2980b9;cursor:pointer;" title="Celeste"></button>
-          <button class="prof-accent-btn" data-color="#8e44ad" style="width:28px;height:28px;border-radius:50%;border:2px solid transparent;background:#8e44ad;cursor:pointer;" title="Morado"></button>
+      <div class="prof-section-label">Color de acento</div>
+      <div class="prof-accent-row" role="radiogroup" aria-label="Color de acento">
+          <button class="prof-accent-btn" data-color="#b3502e" style="background:#b3502e;" title="Terracota"></button>
+          <button class="prof-accent-btn" data-color="#2f5d4f" style="background:#2f5d4f;" title="Verde"></button>
+          <button class="prof-accent-btn" data-color="#2d4f8a" style="background:#2d4f8a;" title="Azul"></button>
+          <button class="prof-accent-btn" data-color="#5c3d8a" style="background:#5c3d8a;" title="Púrpura"></button>
+          <button class="prof-accent-btn" data-color="#8a6d2d" style="background:#8a6d2d;" title="Dorado"></button>
+          <button class="prof-accent-btn" data-color="#c0392b" style="background:#c0392b;" title="Rojo"></button>
+          <button class="prof-accent-btn" data-color="#2980b9" style="background:#2980b9;" title="Celeste"></button>
+          <button class="prof-accent-btn" data-color="#8e44ad" style="background:#8e44ad;" title="Morado"></button>
         </div>
-      </div>
-      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
-        <button id="prof-edit-save" style="flex:1;padding:0.4rem;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;">Guardar cambios</button>
-        <button id="prof-edit-cancel" style="flex:1;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:13px;">Cancelar</button>
-      </div>
+      <button id="prof-edit-save" class="prof-auth-primary" style="margin-top:0.8rem;">Guardar cambios</button>
       <p class="status-msg" id="prof-edit-status"></p>
     </div> 
   </div>

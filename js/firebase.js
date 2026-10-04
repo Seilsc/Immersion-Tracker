@@ -1076,6 +1076,9 @@ function updateProfileUI() {
       if (!isPasswordProvider() || fbUser.emailVerified) { badge.className = "prof-user-badge ok"; badge.textContent = "Verificado"; }
       else { badge.className = "prof-user-badge warn"; badge.textContent = "Sin verificar"; }
     }
+    // cambio de contraseña solo para cuentas email/pass (Google no tiene)
+    var passSection = document.getElementById("prof-pass-section");
+    if (passSection) passSection.style.display = isPasswordProvider() ? "" : "none";
     // hide edit/account views when re-opening dropdown
     var editView = document.getElementById("prof-edit-view");
     if (editView) editView.style.display = "none";
@@ -1782,12 +1785,14 @@ saveState = function() {
     if (editNameInput) editNameInput.value = fbUser.displayName || "";
   });
 
-  var editCancel = document.getElementById("prof-edit-cancel");
-  if (editCancel) editCancel.addEventListener("click", function() {
-    var loggedIn = document.getElementById("prof-logged-in");
-    var editView = document.getElementById("prof-edit-view");
-    if (loggedIn) loggedIn.style.display = "block";
-    if (editView) editView.style.display = "none";
+  ["prof-edit-cancel", "prof-edit-back"].forEach(function(id) {
+    var btn = document.getElementById(id);
+    if (btn) btn.addEventListener("click", function() {
+      var loggedIn = document.getElementById("prof-logged-in");
+      var editView = document.getElementById("prof-edit-view");
+      if (loggedIn) loggedIn.style.display = "block";
+      if (editView) editView.style.display = "none";
+    });
   });
 
   // accent color picker
@@ -1906,6 +1911,19 @@ saveState = function() {
       await firebase.auth().sendPasswordResetEmail(fbUser.email);
       flash("¡Email enviado! Revisa tu bandeja");
     } catch (e) { flash(translateAuthError(e)); }
+  });
+
+  // show/hide password in login form
+  var EYE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var EYE_OFF_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+  var passToggle = document.getElementById("prof-pass-toggle");
+  if (passToggle) passToggle.addEventListener("click", function() {
+    var inp = document.getElementById("prof-pass");
+    if (!inp) return;
+    var show = inp.type === "password";
+    inp.type = show ? "text" : "password";
+    passToggle.innerHTML = show ? EYE_OFF_SVG : EYE_SVG;
+    passToggle.title = show ? "Ocultar contraseña" : "Mostrar contraseña";
   });
 
   // forgot password (from logged-out view, uses typed email)
