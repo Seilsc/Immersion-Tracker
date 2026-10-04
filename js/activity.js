@@ -63,7 +63,7 @@ function renderGoalBar() {
     const perLang = goals.perLang || {};
     const goalMin = perLang[currentLang] || 0;
     if (!goalMin) {
-      wrap.innerHTML = `<div class="goal-no-goal">Sin objetivo para <strong>${currentLang}</strong>. <a id="go-to-goal-config">Configura uno →</a></div>`;
+      wrap.innerHTML = `<div class="goal-no-goal">Sin objetivo para <strong>${esc(currentLang)}</strong>. <a id="go-to-goal-config">Configura uno →</a></div>`;
       document.getElementById("go-to-goal-config")?.addEventListener("click", () => { document.querySelector(".nav-tab[data-page='config']").click(); });
       return;
     }
@@ -74,7 +74,7 @@ function renderGoalBar() {
     const doneStr = formatHM(doneSec);
     const goalStr = formatHM(goalSec);
     const msg = getGoalMotivation(pct);
-    wrap.innerHTML = `<div class="goal-bar-top"><span class="goal-bar-label"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span> Objetivo diario · ${currentLang}</span><span class="goal-bar-numbers"><span class="done">${doneStr}</span> / ${goalStr}</span></div><div class="goal-bar-track"><div class="goal-bar-fill${over?' over':''}" style="width:${Math.round(pct*100)}%"></div></div><div class="goal-bar-msg${pct>=1?' complete':''}">${msg}</div>`;
+    wrap.innerHTML = `<div class="goal-bar-top"><span class="goal-bar-label"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span> Objetivo diario · ${esc(currentLang)}</span><span class="goal-bar-numbers"><span class="done">${doneStr}</span> / ${goalStr}</span></div><div class="goal-bar-track"><div class="goal-bar-fill${over?' over':''}" style="width:${Math.round(pct*100)}%"></div></div><div class="goal-bar-msg${pct>=1?' complete':''}">${msg}</div>`;
   }
 }
 
@@ -90,7 +90,7 @@ function refreshGoalConfigUI() {
   refreshPresetHighlight("goal-global-presets", gMin);
   const langSel = document.getElementById("goal-lang-select");
   const prevLang = langSel.value;
-  langSel.innerHTML = state.languages.map(l => `<option value="${l}">${l}</option>`).join("");
+  langSel.innerHTML = state.languages.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join("");
   if (prevLang && state.languages.includes(prevLang)) langSel.value = prevLang;
   else langSel.value = currentLang;
   refreshPerLangGoalInputs();
@@ -117,8 +117,13 @@ function renderPerLangGoalList() {
   const perLang = state.goals.perLang || {};
   const entries = Object.entries(perLang).filter(([,m]) => m > 0);
   if (!entries.length) { el.innerHTML = '<div class="empty-state">Ningún idioma tiene objetivo configurado.</div>'; return; }
-  el.innerHTML = entries.map(([lang, min]) => `<div class="entry"><div class="entry-main"><span class="entry-title">${lang}</span></div><div class="entry-right"><span class="entry-duration">${formatHM(min*60)}</span><button class="danger-link" onclick="clearLangGoal('${lang}')">quitar</button></div></div>`).join("");
+  el.innerHTML = entries.map(([lang, min], idx) => `<div class="entry"><div class="entry-main"><span class="entry-title">${esc(lang)}</span></div><div class="entry-right"><span class="entry-duration">${formatHM(min*60)}</span><button class="danger-link" onclick="clearLangGoalAt(${idx})">quitar</button></div></div>`).join("");
 }
+
+window.clearLangGoalAt = function(idx) {
+  const keys = Object.entries(state.goals.perLang || {}).filter(([,m]) => m > 0).map(([k]) => k);
+  if (keys[idx]) clearLangGoal(keys[idx]);
+};
 
 window.clearLangGoal = function(lang) {
   delete state.goals.perLang[lang];

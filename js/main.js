@@ -36,7 +36,7 @@ function renderAll() {
   const filterLang = document.getElementById("filter-lang");
   const prev = filterLang.value;
   filterLang.innerHTML = `<option value="">Todos los idiomas</option>` +
-    state.languages.map(l => `<option value="${l}">${l}</option>`).join("");
+    state.languages.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join("");
   if (prev) filterLang.value = prev;
   if (document.getElementById("page-stats").classList.contains("active")) renderStats();
   if (document.getElementById("page-historial").classList.contains("active")) renderHistory();
@@ -50,6 +50,56 @@ refreshApiKeyUI();
 refreshTmdbKeyUI();
 refreshGoalConfigUI();
 renderAll();
+checkExtensionSession();
+
+/* ---------- EXTENSION SESSION IMPORT ---------- */
+
+function checkExtensionSession() {
+  var params = new URLSearchParams(window.location.search);
+  if (!params.get("ext-session")) return;
+
+  var seconds = parseInt(params.get("seconds") || "0", 10);
+  if (seconds <= 0) {
+    history.replaceState({}, "", window.location.pathname);
+    return;
+  }
+
+  var lang = params.get("lang") || currentLang;
+  var note = (params.get("title") || "").slice(0, 200);
+  var videoUrl = params.get("url") || "";
+
+  state.sessions.push(makeSession({
+    activityId: "freeflow-listening",
+    cat: "YouTube",
+    lang: lang,
+    note: note || "Sesión de YouTube",
+    url: videoUrl,
+    seconds: seconds,
+    ts: Date.now(),
+    source: "extension",
+  }));
+  rememberLastActivity("freeflow-listening", seconds);
+
+  saveState();
+  renderAll();
+
+  // Scroll to YouTube section and show confirmation
+  var ytSection = document.querySelector(".section:has(#yt-input)");
+  if (ytSection) ytSection.scrollIntoView({ behavior: "smooth" });
+
+  var statusEl = document.getElementById("yt-status");
+  if (statusEl) {
+    var mins = Math.floor(seconds / 60);
+    var secs = seconds % 60;
+    var timeStr = mins > 0 ? mins + "m " + secs + "s" : secs + "s";
+    statusEl.textContent = "✓ Sesión importada desde la extensión: " + timeStr + " en " + lang + (note ? " — " + note.slice(0, 50) : "");
+    statusEl.className = "status-msg";
+    statusEl.style.color = "var(--green)";
+  }
+
+  // Clean URL params
+  history.replaceState({}, "", window.location.pathname);
+}
 
 /* ---------- CLOUD SYNC ---------- */
 

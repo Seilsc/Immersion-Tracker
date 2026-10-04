@@ -214,7 +214,7 @@ function renderChartByActivity() {
 function barRow(label, secs, max, color) {
   const pct = (secs/max*100).toFixed(1);
   return `<div class="bar-row">
-    <div class="bar-label" title="${label}">${label}</div>
+    <div class="bar-label" title="${esc(label)}">${esc(label)}</div>
     <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
     <div class="bar-val">${formatHM(secs)}</div>
   </div>`;
@@ -480,22 +480,28 @@ function renderHistory() {
   if (filterCat) allEntries = allEntries.filter(e => e.cat === filterCat);
   allEntries.sort((a,b) => b.ts - a.ts);
   if (!allEntries.length) { list.innerHTML = '<div class="empty-state">No hay entradas que mostrar.</div>'; return; }
-  list.innerHTML = allEntries.map(e => `
+  list.innerHTML = allEntries.map(e => {
+    var safeUrl = escUrl(e.url);
+    var titleHtml = esc(e.title);
+    if (safeUrl) titleHtml = `<a href="${safeUrl}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(e.title)}</a>`;
+    return `
     <div class="history-entry">
       <div class="history-entry-main">
-        <div class="history-entry-title">${e.url ? `<a href="${e.url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${e.title}</a>` : e.title}</div>
-        ${e.sub ? `<div class="history-entry-sub">${e.sub}</div>` : ""}
+        <div class="history-entry-title">${titleHtml}</div>
+        ${e.sub ? `<div class="history-entry-sub">${esc(e.sub)}</div>` : ""}
         <div style="margin-top:0.25rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
-          <span class="history-entry-activity">${e.cat}</span>
-          ${e.lang ? `<span class="history-entry-activity" style="background:var(--blue-soft);color:var(--blue)">${e.lang}</span>` : ""}
+          <span class="history-entry-activity">${esc(e.cat)}</span>
+          ${e.lang ? `<span class="history-entry-activity" style="background:var(--blue-soft);color:var(--blue)">${esc(e.lang)}</span>` : ""}
         </div>
       </div>
       <div class="history-entry-right">
         <span class="entry-duration">${formatHMS(e.seconds)}</span>
         ${e.ts ? `<span style="font-family:var(--mono);font-size:11px;color:var(--ink-soft)">${formatDate(e.ts)}</span>` : ""}
+        ${e.type === "session" ? `<button class="delete-entry-btn" onclick="editSession(${e.idx})" title="Editar sesión">✎</button>` : ""}
         <button class="delete-entry-btn" onclick="deleteHistoryEntry('${e.type}', ${e.idx}, this)" title="Eliminar entrada">✕</button>
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 }
 
 let deleteTrash = [];

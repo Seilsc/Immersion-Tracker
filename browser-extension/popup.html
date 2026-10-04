@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      width: 360px;
+      padding: 16px;
+    }
+    h1 { font-size: 18px; margin-bottom: 12px; }
+    .card {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+      border: 1px solid #2a2a4a;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-success { background: #2ecc71; color: #fff; }
+    .btn-outline { background: transparent; color: #4a9eff; border: 1px solid #4a9eff; }
+    .btn-danger { background: transparent; color: #e74c3c; border: 1px solid #e74c3c; font-size:12px; padding:5px 12px; }
+    .btn-sm { width: auto; padding: 5px 12px; font-size: 12px; margin: 0; }
+    .input {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid #2a2a4a;
+      background: #0f3460;
+      color: #e0e0e0;
+      font-size: 14px;
+      margin-bottom: 8px;
+      outline: none;
+    }
+    .input:focus { border-color: #4a9eff; }
+    .hidden { display: none !important; }
+    .flex { display: flex; gap: 8px; align-items: center; }
+    .flex .btn { flex: 1; }
+    .status-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .status-label { color: #999; }
+    .status-value { text-align: right; word-break: break-word; max-width: 200px; }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tag-green { background: #1b4332; color: #52b788; }
+    .tag-gray { background: #333; color: #999; }
+    .tag-blue { background: #1a3a5c; color: #4a9eff; }
+    .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 8px; }
+    select.input { appearance: auto; }
+    .queue-badge {
+      background: #4a9eff;
+      color: #fff;
+      border-radius: 50%;
+      min-width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 0 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="flex" style="justify-content:space-between;margin-bottom:12px;">
+    <h1 style="margin:0;">Immersion Tracker</h1>
+    <div id="queue-indicator" class="hidden" style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:12px;color:#999;">Pendientes:</span>
+      <span id="queue-count" class="queue-badge">0</span>
+    </div>
+  </div>
+
+  <div id="no-yt-tab" class="card">
+    <div style="text-align:center;padding:10px 0;">
+      <div style="font-size:13px;color:#888;">Abre un video de YouTube para empezar</div>
+    </div>
+  </div>
+
+  <div id="yt-status-card" class="card hidden">
+    <div class="section-title">Video actual</div>
+    <div class="status-row"><span class="status-label">Video</span><span class="status-value" id="video-title">—</span></div>
+    <div class="status-row"><span class="status-label">Idioma</span><span class="status-value" id="detected-lang">—</span></div>
+    <div class="status-row"><span class="status-label">Estado</span><span class="status-value" id="tracking-status">—</span></div>
+
+    <div id="force-controls" style="margin-top:10px;">
+      <div class="section-title" style="margin-bottom:4px;">Forzar idioma</div>
+      <div class="flex">
+        <select class="input" id="force-lang-select" style="margin-bottom:0;flex:1;"></select>
+        <button class="btn btn-outline btn-sm" id="btn-force-clear" style="white-space:nowrap;">Quitar</button>
+      </div>
+      <button class="btn btn-outline" id="btn-force" style="margin-top:6px;">Forzar seguimiento</button>
+    </div>
+  </div>
+
+  <button class="btn btn-success" id="btn-open-tracker">
+    Abrir en Immersion Tracker →
+  </button>
+
+  <div id="loading" class="hidden" style="text-align:center;color:#888;padding:20px 0;font-size:13px;">Cargando...</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

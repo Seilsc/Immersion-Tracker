@@ -14,6 +14,7 @@ function loadState() {
       if (!s.shows) s.shows = [];
       if (!s.movies) s.movies = [];
       if (!s.goals) s.goals = { type: "global", globalMinutes: 0, perLang: {} };
+      normalizeStateSessions(s, true);
       return s;
     }
   } catch (e) {}
@@ -83,4 +84,85 @@ function setStatus(el, text, type) {
 
 function getActivityById(id) {
   return ACTIVITIES.find(a => a.id === id);
+}
+
+/* ---------- SEGURIDAD: escape HTML ---------- */
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function(c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
+function escUrl(u) {
+  u = String(u || "").trim();
+  if (/^https?:\/\//i.test(u)) return u.replace(/"/g, "%22");
+  return "";
+}
+
+/* ---------- SESIONES CANÓNICAS (Fase 0) ---------- */
+
+function normKey(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+
+// Mapea cualquier activityId antiguo o sintético ("youtube-X", "show-X",
+// "movie-X", "youtube-Freeflow Listening"...) al id canónico de ACTIVITIES.
+function canonicalActivityId(raw) {
+  if (!raw) return "freeflow-listening";
+  var r = String(raw).replace(/^(youtube|show|movie)-/i, "");
+  var hit = ACTIVITIES.find(function(a) {
+    return normKey(a.id) === normKey(r) || normKey(a.name) === normKey(r) || normKey(a.name) === normKey(raw);
+  });
+  return hit ? hit.id : "freeflow-listening";
+}
+
+function makeSessionId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return Date.now() + "-" + Math.floor(Math.random() * 1e9);
+}
+
+// Fábrica única de sesiones: sanea tipos, recorta nota, impide ts futuro.
+function makeSession(fields) {
+  var f = fields || {};
+  var now = Date.now();
+  var act = getActivityById(f.activityId) || getActivityById(canonicalActivityId(f.activityId));
+  if (!act) act = getActivityById("freeflow-listening");
+  return {
+    id: f.id != null && f.id !== "" ? f.id : makeSessionId(),
+    activityId: act.id,
+    activityName: act.name,
+    cat: f.cat || act.cat,
+    lang: f.lang || (typeof currentLang !== "undefined" ? currentLang : "Japonés"),
+    note: String(f.note || "").slice(0, 200),
+    url: f.url || "",
+    seconds: Math.max(0, Math.round(f.seconds || 0)),
+    ts: Math.min(f.ts || now, now),
+    source: f.source || "manual",
+  };
+}
+
+// Normaliza sesiones guardadas por versiones antiguas. Si persist=true,
+// guarda el resultado (llamada desde loadState, donde `state` aún no existe).
+function normalizeStateSessions(s, persist) {
+  if (!s || !Array.isArray(s.sessions)) return 0;
+  var now = Date.now(), changed = 0;
+  s.sessions.forEach(function(ses) {
+    var canon = canonicalActivityId(ses.activityId);
+    var act = getActivityById(canon);
+    if (act && (ses.activityId !== act.id || ses.activityName !== act.name)) {
+      ses.activityId = act.id; ses.activityName = act.name; changed++;
+    }
+    if (!ses.source) {
+      ses.source = (/youtu\.?be|youtube|tmdb/i.test(ses.url || "") || /^(YouTube|Series|Pel)/.test(ses.cat || "")) ? "media" : "manual";
+      changed++;
+    }
+    if (ses.ts && ses.ts > now) { ses.ts = now; changed++; }
+    if (ses.cat === "Película") { ses.cat = "Películas"; changed++; }
+    if (ses.id == null || ses.id === "") { ses.id = makeSessionId(); changed++; }
+    if (ses.seconds != null) ses.seconds = Math.max(0, Math.round(ses.seconds));
+  });
+  if (changed && persist) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+    console.info("Sesiones normalizadas:", changed);
+  }
+  return changed;
 }

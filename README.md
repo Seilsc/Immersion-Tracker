@@ -10,32 +10,25 @@ Aplicación web estática para registrar y visualizar el tiempo de exposición d
 
 ## Cuentas y guardado en la nube
 
-Para guardar tu progreso y añadir amigos, la app usa **Firebase**. Necesitas configurar tu propio proyecto:
+Para guardar tu progreso y añadir amigos, la app usa **Firebase**. La configuración vive en `js/firebase-config.js`, un archivo **local que no se sube a git**:
 
-1. Ve a [Firebase Console](https://console.firebase.google.com/) e inicia sesión con tu cuenta de Google
-2. Haz clic en **Crear un proyecto** (o usa uno existente)
-3. Activa **Authentication** → **Sign-in method** → **Correo electrónico/contraseña** → Habilitar
-4. Activa **Cloud Firestore** → **Crear base de datos** → **Modo prueba** (luego puedes ajustar las reglas)
-5. Ve a **Configuración del proyecto** → **Tus aplicaciones** → **Web** → Registra la app
-6. Copia el objeto de configuración (`apiKey`, `authDomain`, `projectId`, etc.)
-7. Abre `js/firebase.js` y pega esos valores donde pone `TU_API_KEY`, `TU_PROYECTO`, etc.
+1. Copia `js/firebase-config.example.js` a `js/firebase-config.js`
+2. Ve a [Firebase Console](https://console.firebase.google.com/) e inicia sesión con tu cuenta de Google
+3. Haz clic en **Crear un proyecto** (o usa uno existente)
+4. Activa **Authentication** → **Sign-in method** → **Correo electrónico/contraseña** → Habilitar (y **Google** si quieres login con Google)
+5. Activa **Cloud Firestore** → **Crear base de datos** → **Modo producción**
+6. Ve a **Configuración del proyecto** → **Tus aplicaciones** → **Web** → Registra la app
+7. Copia el objeto de configuración (`apiKey`, `authDomain`, `projectId`, etc.) en tu `js/firebase-config.js`
 
-Las reglas de seguridad de Firestore deben permitir lectura/escritura solo para usuarios autenticados:
+Sin ese archivo la app funciona igual en local, pero sin cuentas ni nube.
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /users/{userId}/friends/{friendId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || request.auth.uid == friendId);
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
+Las reglas de seguridad viven como código en `firestore.rules` (en la raíz del repo). Despliégalas con:
+
 ```
+firebase deploy --only firestore:rules
+```
+
+Permiten a cada usuario ver/editar solo lo suyo, a los amigos leer agregados y perfiles, y a cualquiera autenticado buscar un código de amigo (colección pública `codes`, creada sola al registrarse). No uses "Modo prueba" en un proyecto real y no hacen falta índices compuestos.
 
 ## APIs necesarias
 

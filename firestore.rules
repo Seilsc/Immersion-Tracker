@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // Amistad bilateral: existe el doc en ambas direcciones.
+    function isFriend(a, b) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(a)/friends/$(b))
+        && exists(/databases/$(database)/documents/users/$(b)/friends/$(a));
+    }
+
+    match /users/{userId} {
+      // El dueño lo ve y lo edita todo (displayName, bio, privacy, avatar...).
+      allow read, write: if isSelf(userId);
+
+      // Un amigo solo ve campos públicos. Los agregados van por publicStats.
+      allow get: if isFriend(request.auth.uid, userId)
+        && request.resource == null; // get (no list) — ver nota abajo
+    }
+
+    // Estado completo y prefs: solo el dueño.
+    match /users/{userId}/data/{doc} {
+      allow read, write: if isSelf(userId);
+    }
+
+    // Agregados públicos (doc users/{uid}/public/stats): el dueño escribe;
+    // los amigos leen. Es la ÚNICA fuente que leen otros usuarios.
+    match /users/{userId}/public/{docId} {
+      allow read: if isSelf(userId) || isFriend(request.auth.uid, userId);
+      allow write: if isSelf(userId);
+    }
+
+    // Actividad reciente (feed, rankings por rango): dueño total; amigos lectura.
+    match /users/{userId}/activity/{entryId} {
+      allow read: if isSelf(userId) || isFriend(request.auth.uid, userId);
+      allow create, delete: if isSelf(userId);
+      allow update: if false;
+    }
+
+    // Logros: el dueño escribe; los amigos leen.
+    match /users/{userId}/achievements/{achId} {
+      allow read: if isSelf(userId) || isFriend(request.auth.uid, userId);
+      allow write: if isSelf(userId);
+    }
+
+    // Amistades: el dueño gestiona su lista; además cualquiera puede
+    // crear/borrar SU PROPIO puntero en la lista ajena (aceptar, deshacer,
+    // eliminar bilateral). Sin update ajeno.
+    match /users/{userId}/friends/{friendId} {
+      allow read: if isSelf(userId);
+      allow create, delete: if isSelf(userId);
+      allow create, delete: if signedIn() && friendId == request.auth.uid
+        && (request.resource == null || request.resource.data.keys().hasOnly(["friendCode", "addedAt"]));
+      allow update: if isSelf(userId);
+    }
+
+    // Solicitudes: cualquiera autenticado puede CREAR en el buzón ajeno
+    // (validando que `from` es él mismo); solo el dueño lee/acepta/borra.
+    match /users/{userId}/friendRequests/{reqId} {
+      allow create: if signedIn()
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.status == "pending"
+        && request.resource.data.keys().hasAll(["from", "status", "createdAt"]);
+      allow read, update: if isSelf(userId);
+      // El solicitante puede retractar (borrar) sus propias solicitudes.
+      allow delete: if isSelf(userId)
+        || (signedIn() && resource.data.from == request.auth.uid);
+    }
+
+    // Solicitudes enviadas (espejo propio): solo el dueño.
+    match /users/{userId}/sentRequests/{reqId} {
+      allow read, write: if isSelf(userId);
+    }
+
+    // Mapa público código → uid para buscar amigos sin listar usuarios.
+    // Solo expone códigos (diseñados para compartirse) y uids.
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/codes/$(code))
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(["uid"]);
+      allow update, delete: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid;
+    }
+  }
+}
+
+// NOTAS:
+// 1. `users/{userId}` con get de amigo: como el doc mezcla campos privados
+//    (email) y públicos, la app NUNCA lee el doc ajeno entero para mostrarlo;
+//    usa publicStats. Esta regla permite el get mínimo que necesita el flujo
+//    de amistad (displayName, friendCode, privacy). Si prefieres endurecer,
+//    mueve lo público a users/{uid}/public/profile y deniega este get.
+// 2. Listar `users` está prohibido: la búsqueda de amigos resuelve el código
+//    en la colección pública `codes` (get directo) y nunca lista usuarios.
+// 3. Despliegue: firebase deploy --only firestore:rules
+//    Índices compuestos necesarios: activity(clientTs desc) por usuario
+//    (la consola los pedirá con enlace si falta alguno).

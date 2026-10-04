@@ -273,7 +273,7 @@ function renderYoutube() {
     const entry = document.createElement("div");
     entry.className = "show-card";
     entry.innerHTML = `
-      <div class="show-card-head"><div><div class="show-name"><a href="${video.url || `https://www.youtube.com/watch?v=${video.id}`}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${video.title}</a></div><div class="show-meta">${video.lang || ""} · duración: ${formatHMS(video.seconds)}</div></div><button class="danger-link" onclick="removeYt(${realIdx})">eliminar</button></div>
+      <div class="show-card-head"><div><div class="show-name"><a href="${escUrl(video.url || `https://www.youtube.com/watch?v=${video.id}`)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(video.title)}</a></div><div class="show-meta">${esc(video.lang || "")} · duración: ${formatHMS(video.seconds)}</div></div><button class="danger-link" onclick="removeYt(${realIdx})">eliminar</button></div>
       <div class="show-controls"><label style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">Actividad</label><select class="show-activity-select" id="yt-act-${realIdx}">${actOptions}</select></div>
       ${isManual ? `<div class="show-controls" style="margin-top:0.5rem;"><span style="font-family:var(--mono);font-size:11px;color:var(--ink-soft);"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> Actividad interactiva — registra tu tiempo real:</span></div><div class="yt-time-controls" id="yt-time-ctrl-${realIdx}" style="margin-top:0.5rem;">${renderMediaTimeControls(realIdx, 'yt', video.manualSeconds || 0, video.seconds)}</div>` : `<div class="show-controls" style="margin-top:0.5rem;"><span class="show-total">${formatHMS(effectiveSec)}</span></div>`}
       <div style="margin-top:0.75rem;padding-top:0.6rem;border-top:1px solid var(--line);display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;"><button class="accent" style="font-size:13px;padding:0.45rem 1rem;" onclick="saveYtSession(${realIdx})"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span> Guardar sesión</button><span class="status-msg" id="yt-save-status-${realIdx}" style="margin:0;"></span></div>`;
@@ -304,13 +304,14 @@ window.saveYtSession = function(i) {
   } else {
     seconds = video.seconds;
   }
-  state.sessions.push({
-    id: Date.now(), activityId: "youtube-" + (video.activity || "freeflow-listening"),
-    activityName: video.activity || "Freeflow Listening", cat: "YouTube",
+  state.sessions.push(makeSession({
+    activityId: video.activity || "freeflow-listening",
+    cat: "YouTube",
     lang: video.lang || currentLang, note: video.title,
     url: video.url || `https://www.youtube.com/watch?v=${video.id}`,
-    seconds, ts: Date.now(),
-  });
+    seconds, ts: Date.now(), source: "youtube",
+  }));
+  rememberLastActivity(canonicalActivityId(video.activity || "freeflow-listening"), seconds);
   state.youtube.splice(i, 1);
   saveState();
   renderAll();
@@ -384,7 +385,7 @@ function renderShowResults(results) {
   results.forEach(r => {
     const entry = document.createElement("div");
     entry.className = "result-entry";
-    entry.innerHTML = `<div class="result-main"><span class="result-title">${r.name}${r.original_name && r.original_name !== r.name ? ` (${r.original_name})` : ""}</span><span class="result-sub">${r.first_air_date ? r.first_air_date.slice(0,4) : "sin fecha"}</span></div><button>Añadir</button>`;
+    entry.innerHTML = `<div class="result-main"><span class="result-title">${esc(r.name)}${r.original_name && r.original_name !== r.name ? ` (${esc(r.original_name)})` : ""}</span><span class="result-sub">${r.first_air_date ? esc(r.first_air_date.slice(0,4)) : "sin fecha"}</span></div><button>Añadir</button>`;
     entry.querySelector("button").onclick = () => {
       var lang = document.getElementById("show-lang").value;
       addShowFromTmdb(r, lang, "Freeflow Listening", 0);
@@ -429,7 +430,7 @@ function renderShows() {
     const card = document.createElement("div");
     card.className = "show-card";
     card.innerHTML = `
-      <div class="show-card-head"><div><div class="show-name"><a href="${show.url || `https://www.themoviedb.org/tv/${show.tmdbId}`}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${show.name}</a></div><div class="show-meta">${show.epDuration} min/ep · ${show.lang} · TMDB</div></div><button class="danger-link" onclick="removeShow(${i})">eliminar</button></div>
+      <div class="show-card-head"><div><div class="show-name"><a href="${escUrl(show.url || `https://www.themoviedb.org/tv/${show.tmdbId}`)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(show.name)}</a></div><div class="show-meta">${show.epDuration} min/ep · ${esc(show.lang)} · TMDB</div></div><button class="danger-link" onclick="removeShow(${i})">eliminar</button></div>
       <div class="show-controls"><label style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">Actividad</label><select class="show-activity-select" id="show-act-${i}">${actOptions}</select></div>
       <div class="show-controls" style="margin-top:0.5rem;"><label style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">Episodios vistos</label>
         <div class="num-stepper"><input type="number" id="ep-${i}" min="0" value="${show.episodesWatched || 0}" /><div class="num-stepper-btns"><button type="button" class="num-stepper-btn plus" data-target="ep-${i}">▴</button><button type="button" class="num-stepper-btn minus" data-target="ep-${i}">▾</button></div></div>
@@ -467,13 +468,14 @@ window.saveShowSession = function(i) {
     seconds = show.epDuration * 60 * eps;
   }
   const epInfo = show.episodesWatched > 0 ? ` · ${show.episodesWatched} ep` : "";
-  state.sessions.push({
-    id: Date.now(), activityId: "show-" + (show.activity || "freeflow-listening"),
-    activityName: show.activity || "Freeflow Listening", cat: "Series",
+  state.sessions.push(makeSession({
+    activityId: show.activity || "freeflow-listening",
+    cat: "Series",
     lang: show.lang || currentLang, note: show.name + epInfo,
     url: show.url || (show.tmdbId ? `https://www.themoviedb.org/tv/${show.tmdbId}` : ""),
-    seconds, ts: Date.now(),
-  });
+    seconds, ts: Date.now(), source: "show",
+  }));
+  rememberLastActivity(canonicalActivityId(show.activity || "freeflow-listening"), seconds);
   state.shows.splice(i, 1);
   saveState();
   renderAll();
@@ -504,7 +506,7 @@ function renderMovieResults(results) {
   results.forEach(r => {
     const entry = document.createElement("div");
     entry.className = "result-entry";
-    entry.innerHTML = `<div class="result-main"><span class="result-title">${r.title}${r.original_title && r.original_title !== r.title ? ` (${r.original_title})` : ""}</span><span class="result-sub">${r.release_date ? r.release_date.slice(0,4) : "sin fecha"}</span></div><button>Añadir</button>`;
+    entry.innerHTML = `<div class="result-main"><span class="result-title">${esc(r.title)}${r.original_title && r.original_title !== r.title ? ` (${esc(r.original_title)})` : ""}</span><span class="result-sub">${r.release_date ? esc(r.release_date.slice(0,4)) : "sin fecha"}</span></div><button>Añadir</button>`;
     entry.querySelector("button").onclick = () => {
       var lang = document.getElementById("movie-lang").value;
       addMovieFromTmdb(r, lang, "Freeflow Listening");
@@ -542,7 +544,7 @@ function renderMovies() {
     const entry = document.createElement("div");
     entry.className = "show-card";
     entry.innerHTML = `
-      <div class="show-card-head"><div><div class="show-name"><a href="${movie.url || `https://www.themoviedb.org/movie/${movie.tmdbId}`}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${movie.title || "Película sin título"}</a></div><div class="show-meta">${movie.lang || ""} · ${movie.year || ""} · duración TMDB: ${formatHMS(movie.seconds)}</div></div><button class="danger-link" onclick="removeMovie(${realIdx})">eliminar</button></div>
+      <div class="show-card-head"><div><div class="show-name"><a href="${escUrl(movie.url || `https://www.themoviedb.org/movie/${movie.tmdbId}`)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(movie.title || "Película sin título")}</a></div><div class="show-meta">${esc(movie.lang || "")} · ${esc(movie.year || "")} · duración TMDB: ${formatHMS(movie.seconds)}</div></div><button class="danger-link" onclick="removeMovie(${realIdx})">eliminar</button></div>
       <div class="show-controls"><label style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">Actividad</label><select class="show-activity-select" id="movie-act-${realIdx}">${actOptions}</select></div>
       ${isManualAct ? `<div style="margin-top:0.6rem;"><span style="font-family:var(--mono);font-size:11px;color:var(--ink-soft);"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> Actividad interactiva — registra tu tiempo real:</span><div style="margin-top:0.4rem;">${renderMediaTimeControls(realIdx, 'movie', movie.manualSeconds || 0, movie.seconds)}</div></div>` : ``}
       <div style="margin-top:0.75rem;padding-top:0.6rem;border-top:1px solid var(--line);display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;"><button class="accent" style="font-size:13px;padding:0.45rem 1rem;" onclick="saveMovieSession(${realIdx})"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span> Guardar sesión</button><span class="status-msg" id="movie-save-status-${realIdx}" style="margin:0;"></span></div>`;
@@ -564,13 +566,14 @@ window.saveMovieSession = function(i) {
     seconds = movie.manualSeconds || 0;
     if (seconds <= 0) { if (statusEl) setStatus(statusEl, "Registra primero el tiempo con el cronómetro o manual.", "err"); return; }
   } else { seconds = movie.seconds; }
-  state.sessions.push({
-    id: Date.now(), activityId: "movie-" + (movie.activity || "freeflow-listening"),
-    activityName: movie.activity || "Freeflow Listening", cat: "Películas",
+  state.sessions.push(makeSession({
+    activityId: movie.activity || "freeflow-listening",
+    cat: "Películas",
     lang: movie.lang || currentLang, note: movie.title + (movie.year ? ` (${movie.year})` : ""),
     url: movie.url || (movie.tmdbId ? `https://www.themoviedb.org/movie/${movie.tmdbId}` : ""),
-    seconds, ts: Date.now(),
-  });
+    seconds, ts: Date.now(), source: "movie",
+  }));
+  rememberLastActivity(canonicalActivityId(movie.activity || "freeflow-listening"), seconds);
   state.movies.splice(i, 1);
   saveState();
   renderAll();

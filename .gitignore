@@ -1,0 +1,11 @@
+# Config local con secretos (nunca subir)
+js/firebase-config.js
+
+# Logs/screenshots de depuración local
+.playwright-mcp/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+*.log
+.vscode/

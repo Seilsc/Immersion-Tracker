@@ -226,11 +226,13 @@
 
   /* ACTIVITY GRID */
   .activity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
-  .activity-card { border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; background: var(--surface2); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .activity-card { position: relative; border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; background: var(--surface2); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
   .activity-card:hover { border-color: var(--ink-soft); background: var(--surface); }
   .activity-card.selected { border-color: var(--accent); background: var(--accent-soft); }
-  .activity-card-name { font-size: 13px; font-weight: 600; margin-bottom: 0.3rem; }
+  .activity-card-name { font-size: 13px; font-weight: 600; margin-bottom: 0.3rem; padding-right: 1.6rem; }
   .activity-card-desc { font-size: 11px; color: var(--ink-soft); line-height: 1.5; }
+  .activity-card .pin-btn { position: absolute; top: 6px; right: 6px; background: transparent; border: none; padding: 2px 6px; font-size: 12px; opacity: 0.35; cursor: pointer; }
+  .activity-card:hover .pin-btn, .activity-card .pin-btn.pinned { opacity: 1; }
   .activity-cat-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); margin: 1.25rem 0 0.5rem; }
   .activity-cat-label:first-child { margin-top: 0; }
 
@@ -841,6 +843,9 @@
         <button id="prof-signup-btn" style="flex:1;">Crear cuenta</button>
         <button class="secondary" id="prof-login-btn" style="flex:1;">Iniciar sesión</button>
       </div>
+      <div style="margin-top:0.4rem;text-align:center;">
+        <button class="danger-link" id="prof-forgot-btn">¿Olvidaste tu contraseña?</button>
+      </div>
       <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--line);">
         <button id="prof-google-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.5rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:13px;font-family:var(--sans);">
           <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
@@ -862,11 +867,41 @@
       </div>
 
       <button id="prof-view-profile-btn" style="width:100%;margin-bottom:0.3rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:12px;">Ver mi perfil</button>
-      <button id="prof-edit-btn" style="width:100%;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--accent);cursor:pointer;font-size:12px;">Editar perfil</button>
+      <button id="prof-edit-btn" style="width:100%;margin-bottom:0.3rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--accent);cursor:pointer;font-size:12px;">Editar perfil</button>
+      <button id="prof-account-btn" style="width:100%;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:12px;">Cuenta y seguridad</button>
+      <div id="prof-verify-banner" style="display:none;margin-bottom:0.5rem;padding:0.5rem;border:1px solid var(--gold);border-radius:8px;background:var(--gold-soft);font-size:12px;color:var(--ink);">
+        <div style="margin-bottom:0.4rem;">⚠️ Email sin verificar. Lo social está limitado.</div>
+        <button id="prof-resend-btn" style="width:100%;padding:0.3rem;font-size:12px;">Reenviar verificación</button>
+      </div>
 
       <hr style="border:none;border-top:1px solid var(--line);margin:0.5rem 0;" />
 
       <button class="danger-link" id="prof-logout-btn" style="width:100%;">Cerrar sesión</button>
+    </div>
+
+    <!-- ACCOUNT VIEW -->
+    <div id="prof-account-view" style="display:none;">
+      <div style="font-weight:600;margin-bottom:0.6rem;">Cuenta y seguridad</div>
+      <div class="prof-field">
+        <label for="prof-pass-current">Contraseña actual</label>
+        <input type="password" id="prof-pass-current" placeholder="••••••" autocomplete="current-password" />
+      </div>
+      <div class="prof-field">
+        <label for="prof-pass-new">Nueva contraseña</label>
+        <input type="password" id="prof-pass-new" placeholder="mín. 6 caracteres" autocomplete="new-password" />
+      </div>
+      <div class="prof-field">
+        <label for="prof-pass-repeat">Repite la nueva</label>
+        <input type="password" id="prof-pass-repeat" placeholder="repite la nueva" autocomplete="new-password" />
+      </div>
+      <button id="prof-pass-save" style="width:100%;padding:0.4rem;margin-bottom:0.8rem;">Cambiar contraseña</button>
+      <div class="prof-field">
+        <label for="prof-new-email">Cambiar email</label>
+        <input type="email" id="prof-new-email" placeholder="nuevo@ejemplo.com" autocomplete="email" />
+      </div>
+      <button id="prof-email-save" class="secondary" style="width:100%;padding:0.4rem;">Cambiar email (pide verificación)</button>
+      <p class="status-msg" id="prof-account-status"></p>
+      <button id="prof-account-back" class="secondary" style="width:100%;padding:0.4rem;">← Volver</button>
     </div>
 
     <!-- PROFILE EDIT VIEW -->
@@ -880,13 +915,16 @@
           <div style="font-weight:600;margin-bottom:0.3rem;">Editar perfil</div>
         </div>
       </div>
+      <button id="prof-photo-remove" class="danger-link" style="width:100%;margin-bottom:0.4rem;">Quitar foto</button>
       <div class="prof-field">
         <label for="prof-edit-name-input">Nombre</label>
-        <input type="text" id="prof-edit-name-input" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:13px;" placeholder="Tu nombre" />
+          <input type="text" id="prof-edit-name-input" maxlength="40" style="width:100%;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:13px;" placeholder="Tu nombre" />
+          <div style="font-size:10px;color:var(--ink-soft);text-align:right;"><span id="prof-name-count">0</span>/40</div>
       </div>
       <div class="prof-field">
         <label for="prof-edit-bio">Biografía</label>
-        <textarea id="prof-edit-bio" rows="2" style="width:100%;resize:none;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:12px;font-family:var(--sans);" placeholder="Cuéntanos algo sobre ti..."></textarea>
+          <textarea id="prof-edit-bio" rows="2" maxlength="300" style="width:100%;resize:none;padding:0.3rem 0.5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:12px;font-family:var(--sans);" placeholder="Cuéntanos algo sobre ti..."></textarea>
+          <div style="font-size:10px;color:var(--ink-soft);text-align:right;"><span id="prof-bio-count">0</span>/300</div>
       </div>
       <div class="prof-field">
         <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:0.3rem;">Color de acento</label>
@@ -1122,6 +1160,17 @@
       </div>
       <p class="section-help">Elige el tipo de actividad. El panel de tiempo aparecerá arriba para que no tengas que hacer scroll.</p>
 
+      <div class="row" style="margin-bottom:0.75rem;">
+        <div class="field" style="flex:2;min-width:200px;">
+          <label for="activity-search">Buscar actividad</label>
+          <input type="text" id="activity-search" placeholder="p. ej. shadowing, lectura, vocabulario..." autocomplete="off" />
+        </div>
+        <div class="field" style="flex:1;min-width:170px;justify-content:flex-end;">
+          <label aria-hidden="true">&nbsp;</label>
+          <button class="secondary" id="quick-register-btn" title="Guarda tu última actividad con su última duración">⚡ Registro rápido</button>
+        </div>
+      </div>
+
       <div id="activity-selector">
         <!-- Populated by JS -->
       </div>
@@ -1325,11 +1374,11 @@
   <!-- ==================== PAGE: SOCIAL ==================== -->
   <div class="page" id="page-social">
     <div class="content-card" id="social-logged-out" style="display:none;">
-      <p style="text-align:center;padding:2rem 0;color:var(--ink-soft);">Inicia sesin para ver la seccin social.</p>
+      <p style="text-align:center;padding:2rem 0;color:var(--ink-soft);">Inicia sesión para ver la sección social.</p>
     </div>
     <div id="social-logged-in" style="display:none;">
       <div class="content-card" style="margin-bottom:1rem;">
-        <h2 class="section-title">Tu cdigo de amigo</h2>
+        <h2 class="section-title">Tu código de amigo</h2>
         <div style="display:flex;align-items:center;gap:0.5rem;font-size:14px;">
           <code id="social-friend-code" style="font-size:18px;font-weight:700;color:var(--accent);"></code>
           <button id="social-copy-code" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:12px;padding:2px 6px;text-decoration:underline;">copiar</button>
@@ -1337,7 +1386,7 @@
         <div class="social-section" style="margin-top:1rem;">
           <label for="social-friend-input" style="font-size:12px;font-weight:600;">A&ntilde;adir amigo por c&oacute;digo</label>
           <div style="display:flex;gap:0.4rem;margin-top:0.3rem;">
-            <input type="text" id="social-friend-input" placeholder="Cdigo de 6 caracteres" style="flex:1;min-width:0;text-transform:uppercase;" />
+            <input type="text" id="social-friend-input" placeholder="Código de 6 caracteres" style="flex:1;min-width:0;text-transform:uppercase;" />
             <button class="secondary" id="social-add-friend-btn" style="white-space:nowrap;">Enviar solicitud</button>
           </div>
           <p class="status-msg" id="social-friend-status"></p>
@@ -1349,6 +1398,10 @@
           <h2 class="section-title">Solicitudes pendientes</h2>
           <div id="social-requests-list"></div>
         </div>
+        <div id="social-sent-section" style="display:none;">
+          <h2 class="section-title">Solicitudes enviadas</h2>
+          <div id="social-sent-list"></div>
+        </div>
       </div>
 
       <div class="content-card" style="margin-bottom:1rem;">
@@ -1359,9 +1412,19 @@
         <div id="social-friends-list"></div>
       </div>
 
+      <div class="content-card" style="margin-bottom:1rem;">
+        <h2 class="section-title">Mis logros</h2>
+        <div id="social-achievements"></div>
+      </div>
+
       <div class="content-card">
         <h2 class="section-title">Actividad de amigos</h2>
+        <div class="history-filter">
+          <select id="feed-filter-friend" style="flex:1;min-width:140px;" aria-label="Filtrar por amigo"><option value="">Todos los amigos</option></select>
+          <select id="feed-filter-lang" style="flex:1;min-width:140px;" aria-label="Filtrar por idioma"><option value="">Todos los idiomas</option></select>
+        </div>
         <div id="social-activity-feed"></div>
+        <button id="feed-more-btn" class="secondary" style="display:none;width:100%;margin-top:0.5rem;font-size:12px;">Cargar más</button>
       </div>
     </div>
   </div>
@@ -1644,6 +1707,65 @@
           <span class="slider"></span>
         </label>
       </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <span class="toggle-label">Ocultar foto de perfil</span>
+          <span class="toggle-desc">Mostrar inicial en vez de tu foto.</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="privacy-avatar" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <span class="toggle-label">Ocultar biografía</span>
+          <span class="toggle-desc">No mostrar tu descripción.</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="privacy-bio" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <span class="toggle-label">No aparecer en feeds</span>
+          <span class="toggle-desc">Tus sesiones no salen en el feed de tus amigos.</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="privacy-feed" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <span class="toggle-label">Ranking privado</span>
+          <span class="toggle-desc">Aparecer como "privado", sin cifras, en los rankings.</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="privacy-ranking" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <section class="section" style="border-color:var(--accent);">
+      <div class="section-head"><h2>Zona de peligro</h2></div>
+      <p class="section-help">Eliminar tu cuenta borra tu perfil, tus datos en la nube, tus amistades y tus solicitudes. También se borran los datos locales de este navegador. Esta acción no se puede deshacer.</p>
+      <div class="prof-field">
+        <label for="delete-account-confirm">Escribe tu nombre de usuario para confirmar</label>
+        <input type="text" id="delete-account-confirm" placeholder="Tu nombre" autocomplete="off" />
+      </div>
+      <div class="prof-field">
+        <label for="delete-account-pass">Contraseña (solo cuentas con email)</label>
+        <input type="password" id="delete-account-pass" placeholder="••••••" autocomplete="current-password" />
+      </div>
+      <button id="delete-account-btn" class="accent" style="width:100%;">Eliminar mi cuenta y todos mis datos</button>
+      <p class="status-msg" id="delete-account-status"></p>
     </section>
 
     <section class="section">
@@ -1745,7 +1867,10 @@
 <script src="js/ui.js"></script>
 <script src="js/pages.js"></script>
 <script src="js/tools.js"></script>
+<!-- Opcional y local (no existe en clones frescos; el 404 es inofensivo): aporta window.FIREBASE_CONFIG -->
+<script src="js/firebase-config.js"></script>
 <script src="js/firebase.js"></script>
+<script src="js/achievements.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

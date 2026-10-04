@@ -1,19 +1,22 @@
 ﻿/* ---------- FIREBASE ---------- */
 
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDXhVa7NsVa2oLFJPShzfyzUhDGNQUXC0s",
-  authDomain: "immersion-tracker-languages.firebaseapp.com",
-  projectId: "immersion-tracker-languages",
-  storageBucket: "immersion-tracker-languages.firebasestorage.app",
-  messagingSenderId: "229132583023",
-  appId: "1:229132583023:web:0c6b1a1fb0eb1168f30d9a",
-  measurementId: "G-F1P8JE0KGQ"
-};
+/* Config privada en js/firebase-config.js (gitignored, copiar desde
+   js/firebase-config.example.js). Sin ese archivo, la app funciona en
+   local pero sin cuentas ni nube. */
+const FIREBASE_CONFIG = window.FIREBASE_CONFIG || null;
+
+function firebaseConfigured() { return !!FIREBASE_CONFIG; }
 
 let fbUser = null;
 var lastSessionLen = 0;
 
 function initFirebase() {
+  if (!firebaseConfigured()) {
+    console.warn("Firebase no configurado: copia js/firebase-config.example.js a js/firebase-config.js. La app funciona en local sin nube.");
+    var statusEl = document.getElementById("prof-status");
+    if (statusEl) setStatus(statusEl, "Nube no configurada en esta copia (falta js/firebase-config.js).", "");
+    return;
+  }
   if (window.firebase && !firebase.apps.length) {
     firebase.initializeApp(FIREBASE_CONFIG);
     firebase.auth().onAuthStateChanged(async user => {
@@ -31,11 +34,19 @@ function initFirebase() {
             privacy: {},
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
+          await firebase.firestore().collection("codes").doc(code).set({ uid: user.uid }).catch(function() {});
         } else if (doc.data().privacy) {
           // sync privacy from cloud to localStorage on sign-in
           localStorage.setItem("privacy", JSON.stringify(doc.data().privacy));
           if (typeof window.syncPrivacyToggles === "function") window.syncPrivacyToggles();
         }
+        // backfill: mapa público código → uid (cuentas creadas antes de la colección codes)
+        try {
+          var meAgain = await firebase.firestore().collection("users").doc(user.uid).get();
+          if (meAgain.exists && meAgain.data().friendCode) {
+            await firebase.firestore().collection("codes").doc(meAgain.data().friendCode).set({ uid: user.uid }, { merge: true });
+          }
+        } catch (e) {}
         loadCloudState();
         startAutoSave();
         startRealTimeSync();
@@ -114,6 +125,7 @@ function getGravatarUrl(email, size) {
 /* ---------- AUTH ---------- */
 
 async function fbSignUp(email, password, displayName) {
+  if (!firebaseConfigured()) throw new Error("Nube no configurada en esta copia (falta js/firebase-config.js).");
   var cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
   if (displayName) await cred.user.updateProfile({ displayName: displayName });
   var code = generateFriendCode();
@@ -121,11 +133,13 @@ async function fbSignUp(email, password, displayName) {
     email: email, displayName: displayName || email.split("@")[0],
     friendCode: code, createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
+  await firebase.firestore().collection("codes").doc(code).set({ uid: cred.user.uid }).catch(function() {});
   await cred.user.sendEmailVerification();
   return cred;
 }
 
 async function fbSignIn(email, password) {
+  if (!firebaseConfigured()) throw new Error("Nube no configurada en esta copia (falta js/firebase-config.js).");
   return firebase.auth().signInWithEmailAndPassword(email, password);
 }
 
@@ -135,6 +149,8 @@ async function fbSignOut() {
 }
 
 async function fbUpdateDisplayName(newName) {
+  newName = String(newName || "").trim().slice(0, 40);
+  if (!newName) return;
   await fbUser.updateProfile({ displayName: newName });
   await firebase.firestore().collection("users").doc(fbUser.uid).update({ displayName: newName });
   updateProfileUI();
@@ -142,11 +158,77 @@ async function fbUpdateDisplayName(newName) {
 
 async function fbUpdateBio(bio) {
   if (!fbUser) return;
-  await firebase.firestore().collection("users").doc(fbUser.uid).update({ bio: bio.slice(0, 500) });
+  await firebase.firestore().collection("users").doc(fbUser.uid).update({ bio: String(bio || "").slice(0, 300) });
+}
+
+// Borrado en cascada: amistades bilaterales, subcolecciones, doc, códigos y cuenta.
+async function fbDeleteAccount(password) {
+  if (!fbUser) throw new Error("Inicia sesión primero");
+  var uid = fbUser.uid;
+  var user = fbUser;
+  var expectedName = user.displayName || (user.email ? user.email.split("@")[0] : "");
+  var typed = ((document.getElementById("delete-account-confirm") || {}).value || "").trim();
+  if (!typed || typed.toLowerCase() !== String(expectedName).toLowerCase()) {
+    throw { message: "Escribe tu nombre de usuario para confirmar." };
+  }
+  if (isPasswordProvider()) {
+    if (!password) throw { message: "Escribe tu contraseña para confirmar." };
+    var cred = firebase.auth.EmailAuthProvider.credential(user.email, password);
+    await user.reauthenticateWithCredential(cred);
+  }
+  var db = firebase.firestore();
+  // 1. amistades bilaterales
+  try {
+    var fr = await db.collection("users").doc(uid).collection("friends").get();
+    await Promise.all(fr.docs.map(function(d) {
+      return db.collection("users").doc(d.id).collection("friends").doc(uid).delete().catch(function() {});
+    }));
+  } catch (e) {}
+  // 2. subcolecciones propias por batches
+  async function wipe(col) {
+    try {
+      var snap = await db.collection("users").doc(uid).collection(col).limit(400).get();
+      while (!snap.empty) {
+        await Promise.all(snap.docs.map(function(d) { return d.ref.delete(); }));
+        snap = await db.collection("users").doc(uid).collection(col).limit(400).get();
+      }
+    } catch (e) {}
+  }
+  await wipe("activity");
+  await wipe("friends");
+  await wipe("friendRequests");
+  await wipe("sentRequests");
+  await wipe("achievements");
+  await wipe("public");
+  await wipe("data");
+  // 3. mapa de código, doc propio y cuenta (en este orden, aún autenticado)
+  try {
+    var meDoc = await db.collection("users").doc(uid).get();
+    if (meDoc.exists && meDoc.data().friendCode) {
+      await db.collection("codes").doc(meDoc.data().friendCode).delete().catch(function() {});
+    }
+  } catch (e) {}
+  try { await db.collection("users").doc(uid).delete(); } catch (e) {}
+  stopAutoSave();
+  stopRealTimeSync();
+  await user.delete();
+  // 4. limpieza local (directa, sin saveState para no re-subir nada)
+  state = { languages: ["Japonés"], sessions: [], youtube: [], shows: [], movies: [], goals: { type: "global", globalMinutes: 0, perLang: {} } };
+  currentLang = "Japonés";
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.removeItem(ACH_STORE_KEY);
+  } catch (e) {}
+  renderAll();
+  updateProfileUI();
 }
 
 function fbSignInWithGoogle() {
   var statusEl = document.getElementById("prof-status");
+  if (!firebaseConfigured()) {
+    setStatus(statusEl, "Nube no configurada en esta copia (falta js/firebase-config.js).", "err");
+    return;
+  }
   var provider = new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
   firebase.auth().signInWithPopup(provider).then(function(result) {
@@ -156,9 +238,39 @@ function fbSignInWithGoogle() {
       // fallback to redirect if popup blocked
       firebase.auth().signInWithRedirect(provider);
     } else {
-      setStatus(statusEl, e.message, "err");
+      setStatus(statusEl, translateAuthError(e), "err");
     }
   });
+}
+
+function translateAuthError(e) {
+  if (!e) return "Error desconocido";
+  var map = {
+    "auth/email-already-in-use": "Ese email ya tiene cuenta. Inicia sesión.",
+    "auth/invalid-email": "Email no válido.",
+    "auth/weak-password": "La contraseña debe tener al menos 6 caracteres.",
+    "auth/user-not-found": "No hay cuenta con ese email.",
+    "auth/wrong-password": "Contraseña incorrecta.",
+    "auth/invalid-credential": "Email o contraseña incorrectos.",
+    "auth/too-many-requests": "Demasiados intentos. Espera unos minutos.",
+    "auth/requires-recent-login": "Por seguridad, cierra sesión y vuelve a entrar antes de hacer esto.",
+    "auth/popup-closed-by-user": "Ventana de Google cerrada.",
+    "auth/cancelled-popup-request": "Ya hay una ventana de login abierta.",
+    "auth/network-request-failed": "Sin conexión. Revisa tu red."
+  };
+  if (e.code && map[e.code]) return map[e.code];
+  return e.message || "Error desconocido";
+}
+
+function isPasswordProvider() {
+  return !!(fbUser && fbUser.providerData && fbUser.providerData.some(function(p) { return p.providerId === "password"; }));
+}
+
+// Lo social exige email verificado (cuentas email/pass). Google está exento.
+function isEmailVerifiedForSocial() {
+  if (!fbUser) return false;
+  if (!isPasswordProvider()) return true;
+  return !!fbUser.emailVerified;
 }
 
 function generateFriendCode() {
@@ -177,8 +289,7 @@ async function saveCloudState() {
     await firebase.firestore().collection("users").doc(fbUser.uid).collection("data").doc("state").set({
       state: JSON.parse(JSON.stringify(state)),
       displayPrefs: getDisplayPrefs(),
-      apiKeyYoutube: getApiKey() || null,
-      apiKeyTmdb: getTmdbKey() || null,
+      // Nota: las API keys (YouTube/TMDB) NO se suben a la nube, solo viven en localStorage.
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     setSyncStatus("Sincronizado");
@@ -212,8 +323,6 @@ async function loadCloudState() {
         if (choice === "cloud") {
           Object.assign(state, data.state);
           if (data.displayPrefs) Object.entries(data.displayPrefs).forEach(function(e) { var k = DISPLAY_PREFS[e[0]] && DISPLAY_PREFS[e[0]].key; if (k) localStorage.setItem(k, e[1]); });
-          if (data.apiKeyYoutube) setApiKey(data.apiKeyYoutube);
-          if (data.apiKeyTmdb) setTmdbKey(data.apiKeyTmdb);
           applyDisplayPrefs(); refreshApiKeyUI(); refreshTmdbKeyUI();
         } else {
           saveCloudState();
@@ -221,8 +330,6 @@ async function loadCloudState() {
       } else if (cloudLen > 0 && cloudLen >= localLen) {
         Object.assign(state, data.state);
         if (data.displayPrefs) Object.entries(data.displayPrefs).forEach(function(e) { var k = DISPLAY_PREFS[e[0]] && DISPLAY_PREFS[e[0]].key; if (k) localStorage.setItem(k, e[1]); });
-        if (data.apiKeyYoutube) setApiKey(data.apiKeyYoutube);
-        if (data.apiKeyTmdb) setTmdbKey(data.apiKeyTmdb);
         applyDisplayPrefs(); refreshApiKeyUI(); refreshTmdbKeyUI();
       } else if (localLen > cloudLen) {
         saveCloudState();
@@ -234,6 +341,7 @@ async function loadCloudState() {
     } else {
       saveCloudState();
     }
+    writePublicStats(true);
   } catch (e) { console.warn("Cloud load failed", e); }
 }
 
@@ -263,8 +371,6 @@ function startRealTimeSync() {
         state = JSON.parse(JSON.stringify(data.state));
         lastSessionLen = state.sessions.length; // don't re-log cloud-synced sessions
         if (data.displayPrefs) Object.entries(data.displayPrefs).forEach(function(e) { var k = DISPLAY_PREFS[e[0]] && DISPLAY_PREFS[e[0]].key; if (k) localStorage.setItem(k, e[1]); });
-        if (data.apiKeyYoutube) setApiKey(data.apiKeyYoutube);
-        if (data.apiKeyTmdb) setTmdbKey(data.apiKeyTmdb);
         applyDisplayPrefs(); refreshApiKeyUI(); refreshTmdbKeyUI();
         renderAll();
         if (document.getElementById("page-stats") && document.getElementById("page-stats").classList.contains("active")) renderStats();
@@ -327,34 +433,58 @@ async function logSessionActivity(session) {
 /* ---------- FRIEND REQUESTS ---------- */
 
 async function sendFriendRequest(code) {
-  if (!fbUser) throw new Error("Inicia sesin primero");
-  var snap = await firebase.firestore().collection("users").where("friendCode", "==", code.toUpperCase()).get();
-  if (snap.empty) throw new Error("Cdigo invlido");
-  var target = snap.docs[0];
-  var targetId = target.id;
-  if (targetId === fbUser.uid) throw new Error("No puedes a&ntilde;adirte a ti mismo");
+  if (!fbUser) throw new Error("Inicia sesión primero");
+  if (!isEmailVerifiedForSocial()) throw new Error("Verifica tu email para añadir amigos.");
+  // Resolución por colección pública codes/{CODIGO} (listar users está prohibido).
+  var codeDoc = await firebase.firestore().collection("codes").doc(code.toUpperCase()).get().catch(function() { return null; });
+  if (!codeDoc || !codeDoc.exists || !codeDoc.data().uid) throw new Error("Código inválido");
+  var targetId = codeDoc.data().uid;
+  if (targetId === fbUser.uid) throw new Error("No puedes añadirte a ti mismo");
   // check if already friends
   var existing = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").doc(targetId).get();
   if (existing.exists) throw new Error("Ya sois amigos");
-  // check if request already sent
+  // check if request already sent (pending only: permite reintentar tras rechazo)
   var reqSnap = await firebase.firestore().collection("users").doc(targetId).collection("friendRequests").where("from", "==", fbUser.uid).get();
-  if (!reqSnap.empty) throw new Error("Solicitud ya enviada");
-  await firebase.firestore().collection("users").doc(targetId).collection("friendRequests").add({
+  var pendingExists = false;
+  reqSnap.forEach(function(r) { if (r.data().status === "pending") pendingExists = true; });
+  if (pendingExists) throw new Error("Solicitud ya enviada");
+  // anti-spam con espejo propio (máx. 20 salientes, no reenviar en 24 h)
+  var mirrorRef = firebase.firestore().collection("users").doc(fbUser.uid).collection("sentRequests").doc(targetId);
+  var mirror = await mirrorRef.get().catch(function() { return null; });
+  if (mirror && mirror.exists) {
+    var sentAt = mirror.data().clientTs || 0;
+    if (Date.now() - sentAt < 24 * 3600 * 1000) throw new Error("Ya enviaste una solicitud a este usuario hace poco.");
+  }
+  var allSent = await firebase.firestore().collection("users").doc(fbUser.uid).collection("sentRequests").get().catch(function() { return { size: 0 }; });
+  if (allSent.size >= 20 && !(mirror && mirror.exists)) throw new Error("Tienes demasiadas solicitudes pendientes.");
+  var myCode = "";
+  try { myCode = await getMyFriendCode() || ""; } catch (e) {}
+  var reqRef = await firebase.firestore().collection("users").doc(targetId).collection("friendRequests").add({
     from: fbUser.uid,
     fromName: fbUser.displayName || fbUser.email.split("@")[0],
     fromCode: code.toUpperCase(),
+    senderCode: myCode,
     status: "pending",
+    clientTs: Date.now(),
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
+  await mirrorRef.set({
+    to: targetId,
+    toName: code.toUpperCase(),
+    toCode: code.toUpperCase(),
+    reqId: reqRef.id,
+    clientTs: Date.now(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(function() {});
 }
 
 async function acceptFriendRequest(reqId, fromUid) {
   if (!fbUser) return;
   // accept: update request status, add bidirectional friendship
+  // (el código del amigo sale de la propia solicitud: su doc aún no es legible)
+  var reqDoc = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friendRequests").doc(reqId).get().catch(function() { return null; });
   await firebase.firestore().collection("users").doc(fbUser.uid).collection("friendRequests").doc(reqId).update({ status: "accepted" });
-  // get friend's code
-  var fromUser = await firebase.firestore().collection("users").doc(fromUid).get();
-  var fromCode = fromUser.exists ? fromUser.data().friendCode || "" : "";
+  var fromCode = (reqDoc && reqDoc.exists && reqDoc.data().senderCode) || "";
   await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").doc(fromUid).set({
     friendCode: fromCode, addedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
@@ -363,6 +493,8 @@ async function acceptFriendRequest(reqId, fromUid) {
     friendCode: myDoc.exists ? myDoc.data().friendCode || "" : "",
     addedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
+  // si yo también le había enviado solicitud, limpio mi espejo
+  await firebase.firestore().collection("users").doc(fbUser.uid).collection("sentRequests").doc(fromUid).delete().catch(function() {});
   loadSocialPendingRequests();
   loadSocialFriendsList();
 }
@@ -373,6 +505,55 @@ async function declineFriendRequest(reqId) {
   loadSocialPendingRequests();
 }
 
+async function cancelSentRequest(targetId) {
+  if (!fbUser) return;
+  var db = firebase.firestore();
+  try {
+    // borrado directo por id (sin listar el buzón ajeno: denegado por reglas)
+    var mirror = await db.collection("users").doc(fbUser.uid).collection("sentRequests").doc(targetId).get();
+    if (mirror.exists && mirror.data().reqId) {
+      await db.collection("users").doc(targetId).collection("friendRequests").doc(mirror.data().reqId).delete();
+    }
+  } catch (e) { console.warn("cancelSentRequest remote failed", e); }
+  await db.collection("users").doc(fbUser.uid).collection("sentRequests").doc(targetId).delete().catch(function() {});
+  loadSocialSentRequests();
+}
+
+async function loadSocialSentRequests() {
+  var section = document.getElementById("social-sent-section");
+  var list = document.getElementById("social-sent-list");
+  if (!section || !list || !fbUser) return;
+  var snap;
+  try {
+    snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("sentRequests").get();
+  } catch (e) { section.style.display = "none"; return; }
+  if (snap.empty) { section.style.display = "none"; return; }
+  var rows = await Promise.all(snap.docs.map(async function(doc) {
+    var d = doc.data();
+    try {
+      // ya aceptada: autolimpieza del espejo
+      var fr = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").doc(doc.id).get();
+      if (fr.exists) {
+        await firebase.firestore().collection("users").doc(fbUser.uid).collection("sentRequests").doc(doc.id).delete().catch(function() {});
+        return null;
+      }
+    } catch (e) {}
+    return { id: doc.id, name: d.toName || "Amigo" };
+  }));
+  rows = rows.filter(Boolean);
+  if (!rows.length) { section.style.display = "none"; return; }
+  section.style.display = "block";
+  list.innerHTML = rows.map(function(r) {
+    return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;font-size:13px;border-bottom:1px solid var(--line);">' +
+      '<span style="flex:1;font-weight:500;">' + esc(r.name) + '</span>' +
+      '<span style="font-size:11px;color:var(--ink-soft);">pendiente</span>' +
+      '<button class="social-sent-cancel" data-id="' + r.id + '" style="font-size:11px;padding:0.25rem 0.6rem;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink-soft);cursor:pointer;">Cancelar</button></div>';
+  }).join("");
+  list.querySelectorAll(".social-sent-cancel").forEach(function(b) {
+    b.addEventListener("click", function() { cancelSentRequest(this.dataset.id); });
+  });
+}
+
 /* ---------- FRIENDS ---------- */
 
 async function addFriendByCode(code) {
@@ -380,71 +561,149 @@ async function addFriendByCode(code) {
   await sendFriendRequest(code);
 }
 
+var friendUndoTimer = null;
 async function removeFriend(friendId) {
-  if (!fbUser || !confirm("Eliminar amigo?")) return;
-  await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").doc(friendId).delete();
-  await firebase.firestore().collection("users").doc(friendId).collection("friends").doc(fbUser.uid).delete();
+  if (!fbUser) return;
+  var db = firebase.firestore();
+  var myCode = "", theirCode = "";
+  try {
+    var myDoc = await db.collection("users").doc(fbUser.uid).get();
+    if (myDoc.exists) myCode = myDoc.data().friendCode || "";
+    var myRef = await db.collection("users").doc(fbUser.uid).collection("friends").doc(friendId).get();
+    if (myRef.exists) theirCode = myRef.data().friendCode || "";
+  } catch (e) {}
+  try {
+    await db.collection("users").doc(fbUser.uid).collection("friends").doc(friendId).delete();
+    await db.collection("users").doc(friendId).collection("friends").doc(fbUser.uid).delete();
+  } catch (e) { console.warn("removeFriend failed", e); return; }
   loadSocialFriendsList();
+  var toast = document.getElementById("undo-toast");
+  var msgEl = document.getElementById("undo-toast-msg");
+  var btn = document.getElementById("undo-toast-btn");
+  if (toast && msgEl && btn) {
+    msgEl.textContent = "Amigo eliminado";
+    toast.style.display = "flex";
+    btn.onclick = async function() {
+      try {
+        await db.collection("users").doc(fbUser.uid).collection("friends").doc(friendId).set({ friendCode: theirCode, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        await db.collection("users").doc(friendId).collection("friends").doc(fbUser.uid).set({ friendCode: myCode, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      } catch (e) { console.warn("friend undo failed", e); }
+      loadSocialFriendsList();
+      toast.style.display = "none";
+      clearTimeout(friendUndoTimer);
+    };
+    clearTimeout(friendUndoTimer);
+    friendUndoTimer = setTimeout(function() { toast.style.display = "none"; }, 15000);
+  }
 }
 
 async function getFriends() {
   if (!fbUser) return [];
-  var people = [];
-  // include self
-  var myUser = await firebase.firestore().collection("users").doc(fbUser.uid).get();
-  var myData = await firebase.firestore().collection("users").doc(fbUser.uid).collection("data").doc("state").get();
-  people.push({
-    id: fbUser.uid, displayName: myUser.exists ? (myUser.data().displayName || "T") : "T",
-    isSelf: true,
-    totalMinutes: myData.exists ? totalFromState(myData.data().state) : 0
-  });
+  var myStats = computePublicStats();
+  var myName = fbUser.displayName || (fbUser.email ? fbUser.email.split("@")[0] : "T");
+  var people = [{
+    id: fbUser.uid, displayName: myName,
+    isSelf: true, totalMinutes: myStats.totalMinutes, isPrivate: false
+  }];
   var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").get();
-  for (var i = 0; i < snap.docs.length; i++) {
-    var fId = snap.docs[i].id;
-    var fUser = await firebase.firestore().collection("users").doc(fId).get();
-    if (fUser.exists) {
-      var fData = await firebase.firestore().collection("users").doc(fId).collection("data").doc("state").get();
-      people.push({
-        id: fId, displayName: fUser.data().displayName || "Amigo",
-        friendCode: fUser.data().friendCode,
-        totalMinutes: fData.exists ? totalFromState(fData.data().state) : 0
-      });
+  var others = await Promise.all(snap.docs.map(async function(fDoc) {
+    var fId = fDoc.id;
+    var results = await Promise.all([
+      firebase.firestore().collection("users").doc(fId).get(),
+      firebase.firestore().collection("users").doc(fId).collection("public").doc("stats").get()
+    ]);
+    var fUser = results[0], fStats = results[1];
+    if (!fUser.exists) return null;
+    var priv = fUser.data().privacy || {};
+    if (priv.ranking || priv.total) {
+      return { id: fId, displayName: fUser.data().displayName || "Amigo", isPrivate: true, totalMinutes: -1 };
     }
-  }
+    var mins = 0;
+    if (fStats.exists && typeof fStats.data().totalMinutes === "number") {
+      mins = fStats.data().totalMinutes;
+    } else {
+      // compat: amigos con app antigua sin public/stats (puede denegarlo: entonces 0)
+      try {
+        var fData = await firebase.firestore().collection("users").doc(fId).collection("data").doc("state").get();
+        mins = fData.exists ? totalFromState(fData.data().state) : 0;
+      } catch (e) {}
+    }
+    return {
+      id: fId, displayName: fUser.data().displayName || "Amigo",
+      friendCode: fUser.data().friendCode,
+      totalMinutes: mins, isPrivate: false
+    };
+  }));
+  others.forEach(function(p) { if (p) people.push(p); });
   return people.sort(function(a, b) { return b.totalMinutes - a.totalMinutes; });
 }
 
 async function getFriendsWithRange(days) {
   if (!fbUser) return [];
+  var myName = fbUser.displayName || (fbUser.email ? fbUser.email.split("@")[0] : "T");
   var people = [];
   var since = Date.now() - days * 24 * 60 * 60 * 1000;
-  // include self
-  var myUser = await firebase.firestore().collection("users").doc(fbUser.uid).get();
-  if (myUser.exists) {
-    var myActivity = await firebase.firestore().collection("users").doc(fbUser.uid).collection("activity").where("clientTs", ">=", since).get();
-    var myMinutes = 0;
-    myActivity.forEach(function(a) { myMinutes += (a.data().seconds || 0) / 60; });
-    people.push({
-      id: fbUser.uid, displayName: myUser.data().displayName || "T",
-      isSelf: true,
-      totalMinutes: Math.round(myMinutes)
-    });
-  }
-  var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").get();
-  for (var i = 0; i < snap.docs.length; i++) {
-    var fId = snap.docs[i].id;
-    var fUser = await firebase.firestore().collection("users").doc(fId).get();
-    if (fUser.exists) {
-      var activitySnap = await firebase.firestore().collection("users").doc(fId).collection("activity").where("clientTs", ">=", since).get();
-      var pMinutes = 0;
-      activitySnap.forEach(function(a) { pMinutes += (a.data().seconds || 0) / 60; });
-      people.push({
+  if (days === 7) {
+    // Ranking semanal desde public/stats: sin leer actividad ajena.
+    var myStats = computePublicStats();
+    var myW = myStats.last7Days.reduce(function(t, d) { return t + (d.minutes || 0); }, 0);
+    people.push({ id: fbUser.uid, displayName: myName, isSelf: true, totalMinutes: myW, isPrivate: false });
+    var snapW = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").get();
+    var othersW = await Promise.all(snapW.docs.map(async function(fDoc) {
+      var fId = fDoc.id;
+      var results = await Promise.all([
+        firebase.firestore().collection("users").doc(fId).get(),
+        firebase.firestore().collection("users").doc(fId).collection("public").doc("stats").get()
+      ]);
+      var fUser = results[0], fStats = results[1];
+      if (!fUser.exists) return null;
+      var priv = fUser.data().privacy || {};
+      if (priv.ranking || priv.total || priv.weekly) {
+        return { id: fId, displayName: fUser.data().displayName || "Amigo", isPrivate: true, totalMinutes: -1 };
+      }
+      var w = 0;
+      if (fStats.exists && Array.isArray(fStats.data().last7Days)) {
+        w = fStats.data().last7Days.reduce(function(t, d) { return t + (d.minutes || 0); }, 0);
+      } else {
+        try {
+          var actSnap = await firebase.firestore().collection("users").doc(fId).collection("activity").where("clientTs", ">=", since).get();
+          actSnap.forEach(function(a) { w += (a.data().seconds || 0) / 60; });
+          w = Math.round(w);
+        } catch (e) {}
+      }
+      return {
         id: fId, displayName: fUser.data().displayName || "Amigo",
         friendCode: fUser.data().friendCode,
-        totalMinutes: Math.round(pMinutes)
-      });
-    }
+        totalMinutes: Math.round(w), isPrivate: false
+      };
+    }));
+    othersW.forEach(function(p) { if (p) people.push(p); });
+    return people.sort(function(a, b) { return b.totalMinutes - a.totalMinutes; });
   }
+  // Mensual/anual: rango local propio + consulta de actividad ajena con privacidad.
+  people.push({
+    id: fbUser.uid, displayName: myName,
+    isSelf: true, totalMinutes: rangeMinutesLocal(days), isPrivate: false
+  });
+  var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").get();
+  var others = await Promise.all(snap.docs.map(async function(fDoc) {
+    var fId = fDoc.id;
+    var fUser = await firebase.firestore().collection("users").doc(fId).get();
+    if (!fUser.exists) return null;
+    var priv = fUser.data().privacy || {};
+    if (priv.ranking || priv.total) {
+      return { id: fId, displayName: fUser.data().displayName || "Amigo", isPrivate: true, totalMinutes: -1 };
+    }
+    var activitySnap = await firebase.firestore().collection("users").doc(fId).collection("activity").where("clientTs", ">=", since).get();
+    var pMinutes = 0;
+    activitySnap.forEach(function(a) { pMinutes += (a.data().seconds || 0) / 60; });
+    return {
+      id: fId, displayName: fUser.data().displayName || "Amigo",
+      friendCode: fUser.data().friendCode,
+      totalMinutes: Math.round(pMinutes), isPrivate: false
+    };
+  }));
+  others.forEach(function(p) { if (p) people.push(p); });
   return people.sort(function(a, b) { return b.totalMinutes - a.totalMinutes; });
 }
 
@@ -464,12 +723,122 @@ function totalFromState(s) {
   return Math.round(t);
 }
 
+function getLocalPrivacy() {
+  try { return JSON.parse(localStorage.getItem("privacy") || "{}"); } catch (e) { return {}; }
+}
+
+// Todas las actividades con timestamp (sesiones + listas media), como el modal rico.
+function aggregateAllActivities(s) {
+  var all = [];
+  (s.sessions || []).forEach(function(x) { if (x.ts) all.push({ ts: x.ts, sec: x.seconds || 0 }); });
+  (s.youtube || []).forEach(function(v) { if (v.ts) all.push({ ts: v.ts, sec: v.seconds || v.duration || 0 }); });
+  (s.shows || []).forEach(function(sh) { if (sh.ts) all.push({ ts: sh.ts, sec: (sh.episodesWatched || 0) * (sh.epDuration || 0) * 60 }); });
+  (s.movies || []).forEach(function(m) { if (m.ts) all.push({ ts: m.ts, sec: m.seconds || m.duration || 0 }); });
+  return all;
+}
+
+function computeLocalStreak(all) {
+  var dates = {};
+  all.forEach(function(a) { if (a.ts) dates[new Date(a.ts).toDateString()] = true; });
+  var keys = Object.keys(dates).sort();
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var cur = 0, d = new Date(today);
+  if (!dates[d.toDateString()]) d.setDate(d.getDate() - 1); // ayer cuenta como racha viva
+  while (dates[d.toDateString()]) { cur++; d.setDate(d.getDate() - 1); }
+  var longest = 0, run = 0, prev = null;
+  keys.forEach(function(k) {
+    var t = new Date(k);
+    if (prev && (t - prev) === 86400000) run++; else run = 1;
+    if (run > longest) longest = run;
+    prev = t;
+  });
+  return { current: cur, longest: longest };
+}
+
+function rangeMinutesLocal(days) {
+  var cutoff = Date.now() - days * 86400000;
+  var t = 0;
+  aggregateAllActivities(state).forEach(function(a) { if (a.ts >= cutoff) t += a.sec; });
+  return Math.round(t / 60);
+}
+
+// Agregados para users/{uid}/public/stats — ÚNICA fuente que leen otros usuarios.
+// Se pre-filtran con la privacidad del dueño (ver getLocalPrivacy).
+function computePublicStats() {
+  var s = state;
+  var sessions = s.sessions || [];
+  var langTotals = {}, langSessions = {};
+  sessions.forEach(function(ses) {
+    var l = ses.lang || "otro";
+    var m = (ses.seconds || 0) / 60;
+    if (!langTotals[l]) { langTotals[l] = 0; langSessions[l] = 0; }
+    langTotals[l] += m; langSessions[l]++;
+  });
+  var perLang = Object.keys(langTotals).map(function(l) {
+    return { name: l, minutes: Math.round(langTotals[l]), sessions: langSessions[l] };
+  }).sort(function(a, b) { return b.minutes - a.minutes; });
+  var maxM = perLang.length ? perLang[0].minutes : 1;
+  perLang.forEach(function(l) { l.pct = Math.round(l.minutes / maxM * 100); });
+  var all = aggregateAllActivities(s);
+  function daySum(ts0, ts1) {
+    var t = 0;
+    all.forEach(function(a) { if (a.ts >= ts0 && a.ts < ts1) t += a.sec; });
+    return Math.round(t / 60);
+  }
+  var start = new Date(); start.setHours(0, 0, 0, 0);
+  var last7Days = [], daily = [];
+  for (var back = 370; back >= 0; back--) {
+    var d0 = new Date(start); d0.setDate(d0.getDate() - back);
+    var d1 = new Date(d0); d1.setDate(d1.getDate() + 1);
+    var mins = daySum(d0.getTime(), d1.getTime());
+    daily.push({ dateStr: d0.toDateString(), minutes: mins });
+    if (back < 7) last7Days.push({ label: d0.toLocaleDateString("es", { weekday: "short" }), minutes: mins });
+  }
+  var streak = computeLocalStreak(all);
+  var recent = sessions.slice(-10).reverse().map(function(ses) {
+    return { note: ses.note || ses.cat || "Sesión", seconds: ses.seconds || 0, lang: ses.lang || "", ts: ses.ts || 0 };
+  });
+  var ps = {
+    totalMinutes: totalFromState(s),
+    totalSessions: sessions.length,
+    perLang: perLang,
+    streakCurrent: streak.current,
+    streakLongest: streak.longest,
+    last7Days: last7Days,
+    daily: daily,
+    recent: recent,
+    updatedAt: Date.now()
+  };
+  var privacy = getLocalPrivacy();
+  if (privacy.total || privacy.ranking) { ps.totalMinutes = 0; ps.totalSessions = 0; }
+  if (privacy.languages) ps.perLang = [];
+  if (privacy.weekly) ps.last7Days = [];
+  if (privacy.daily) ps.daily = [];
+  if (privacy.recent) ps.recent = [];
+  if (privacy.streak) { ps.streakCurrent = 0; ps.streakLongest = 0; }
+  return ps;
+}
+
+var lastPublicStatsSig = "";
+async function writePublicStats(force) {
+  if (!fbUser || !firebaseConfigured()) return;
+  try {
+    var ps = computePublicStats();
+    var sig = ps.totalSessions + ":" + ps.totalMinutes + ":" + ps.streakCurrent + ":" +
+      JSON.stringify(ps.last7Days) + ":" + JSON.stringify(ps.recent.map(function(r) { return r.ts; }));
+    if (!force && sig === lastPublicStatsSig) return;
+    lastPublicStatsSig = sig;
+    await firebase.firestore().collection("users").doc(fbUser.uid).collection("public").doc("stats").set(ps);
+  } catch (e) { console.warn("publicStats write failed", e); }
+}
+
 async function getRichProfileData(userId) {
   if (!fbUser) return null;
   var userDoc = await firebase.firestore().collection("users").doc(userId).get();
   if (!userDoc.exists) return null;
   var ud = userDoc.data();
   var isViewerOwner = fbUser.uid === userId;
+  if (!isViewerOwner) return getFriendPublicProfile(userId);
   // load privacy settings (only apply when viewing someone else)
   var privacy = {};
   if (!isViewerOwner && ud.privacy) privacy = ud.privacy;
@@ -588,27 +957,75 @@ async function getRichProfileData(userId) {
   return result;
 }
 
+// Perfil ajeno desde public/stats (pre-filtrado) + flags del dueño para la UI.
+// Nunca lee el data/state ajeno: respeta la privacidad por construcción.
+async function getFriendPublicProfile(userId) {
+  var userDoc = await firebase.firestore().collection("users").doc(userId).get();
+  if (!userDoc.exists) return null;
+  var ud = userDoc.data();
+  var privacy = ud.privacy || {};
+  var statsDoc = await firebase.firestore().collection("users").doc(userId).collection("public").doc("stats").get();
+  var ps = statsDoc.exists ? statsDoc.data() : null;
+  var result = {
+    displayName: ud.displayName || "Usuario",
+    bio: privacy.bio ? "" : (ud.bio || ""),
+    avatarBase64: privacy.avatar ? "" : (ud.avatarBase64 || ud.avatarUrl || ""),
+    friendCode: ud.friendCode || "",
+    totalSessions: 0, totalMinutes: 0, languages: [],
+    weekly: { days: [], max: 0 }, daily: [],
+    streak: { current: 0, longest: 0 }, recent: [],
+    hidden: {}
+  };
+  if (!ps) {
+    result.hidden = { total: true, languages: true, weekly: true, daily: true, recent: true, streak: true };
+    return result;
+  }
+  if (privacy.total || privacy.ranking) result.hidden.total = true;
+  else { result.totalMinutes = ps.totalMinutes || 0; result.totalSessions = ps.totalSessions || 0; }
+  if (privacy.languages) result.hidden.languages = true;
+  else result.languages = (ps.perLang || []).map(function(l) { return { name: l.name, minutes: l.minutes, sessions: l.sessions, pct: l.pct }; });
+  if (privacy.weekly) result.hidden.weekly = true;
+  else {
+    var days = ps.last7Days || [];
+    result.weekly = { days: days, max: Math.max(1, days.reduce(function(mx, d) { return Math.max(mx, d.minutes || 0); }, 0)) };
+  }
+  if (privacy.daily) result.hidden.daily = true;
+  else result.daily = ps.daily || [];
+  if (privacy.streak) result.hidden.streak = true;
+  else result.streak = { current: ps.streakCurrent || 0, longest: ps.streakLongest || 0 };
+  if (privacy.recent) result.hidden.recent = true;
+  else result.recent = (ps.recent || []).map(function(s) { return { note: s.note, seconds: s.seconds, lang: s.lang, ts: s.ts }; });
+  return result;
+}
+
 // keep old getFriendProfile as alias for backward compat
 var getFriendProfile = getRichProfileData;
 
 /* ---------- ACTIVITY FEED ---------- */
 
-async function getFriendActivityFeed() {
+async function getFriendActivityFeed(limit) {
   if (!fbUser) return [];
   var snap = await firebase.firestore().collection("users").doc(fbUser.uid).collection("friends").get();
-  var all = [];
-  for (var i = 0; i < snap.docs.length; i++) {
-    var fId = snap.docs[i].id;
-    var fUser = await firebase.firestore().collection("users").doc(fId).get();
+  var perFriend = await Promise.all(snap.docs.map(async function(fDoc) {
+    var fId = fDoc.id;
+    var results = await Promise.all([
+      firebase.firestore().collection("users").doc(fId).get(),
+      firebase.firestore().collection("users").doc(fId).collection("activity").orderBy("clientTs", "desc").limit(5).get()
+    ]);
+    var fUser = results[0], actSnap = results[1];
+    if (fUser.exists && fUser.data().privacy && fUser.data().privacy.feed) return [];
     var fName = fUser.exists ? (fUser.data().displayName || "Amigo") : "Amigo";
-    var actSnap = await firebase.firestore().collection("users").doc(fId).collection("activity").orderBy("clientTs", "desc").limit(3).get();
+    var items = [];
     actSnap.forEach(function(a) {
       var d = a.data();
-      all.push({ friendName: fName, friendId: fId, ts: d.clientTs || 0, note: d.note || "", seconds: d.seconds || 0, lang: d.lang || "", cat: d.cat || "" });
+      items.push({ friendName: fName, friendId: fId, ts: d.clientTs || 0, note: d.note || "", seconds: d.seconds || 0, lang: d.lang || "", cat: d.cat || "" });
     });
-  }
+    return items;
+  }));
+  var all = [];
+  perFriend.forEach(function(items) { all = all.concat(items); });
   all.sort(function(a, b) { return b.ts - a.ts; });
-  return all.slice(0, 10);
+  return all.slice(0, Math.max(limit || 10, 10));
 }
 
 /* ---------- UI ---------- */
@@ -649,9 +1066,14 @@ function updateProfileUI() {
     if (loggedIn) loggedIn.style.display = "block";
     if (nameEl) nameEl.textContent = fbUser.displayName || fbUser.email.split("@")[0];
     if (emailEl) emailEl.textContent = fbUser.email;
-    // hide edit view when re-opening dropdown
+    // verification banner (password accounts only)
+    var verifyBanner = document.getElementById("prof-verify-banner");
+    if (verifyBanner) verifyBanner.style.display = (isPasswordProvider() && !fbUser.emailVerified) ? "block" : "none";
+    // hide edit/account views when re-opening dropdown
     var editView = document.getElementById("prof-edit-view");
     if (editView) editView.style.display = "none";
+    var accView0 = document.getElementById("prof-account-view");
+    if (accView0) accView0.style.display = "none";
 
     // load profile data from Firestore for edit view
     var editNameInput = document.getElementById("prof-edit-name-input");
@@ -715,6 +1137,30 @@ async function showRichProfile(friendId, isSelf) {
   var profile = await getRichProfileData(friendId);
   if (!profile) { console.warn("RichProfile: no profile data for", friendId); return; }
   var isOwn = isSelf || friendId === (fbUser && fbUser.uid);
+  if (!isOwn && !isEmailVerifiedForSocial()) {
+    setSyncStatus("Verifica tu email para ver perfiles.");
+    setTimeout(function() { setSyncStatus(""); }, 2500);
+    return;
+  }
+  // comparativa semanal tú vs amigo (solo viendo a otros)
+  var cmpEl = document.getElementById("fm-compare");
+  if (!isOwn) {
+    var myWeek = rangeMinutesLocal(7);
+    var frWeek = (profile.weekly && profile.weekly.days) ? profile.weekly.days.reduce(function(t, d) { return t + (d.minutes || 0); }, 0) : 0;
+    if (!cmpEl) {
+      var chartSec = document.getElementById("fm-chart-section");
+      if (chartSec) {
+        cmpEl = document.createElement("div");
+        cmpEl.id = "fm-compare";
+        cmpEl.style.cssText = "font-size:12px;color:var(--ink-soft);margin-bottom:0.5rem;";
+        chartSec.insertBefore(cmpEl, chartSec.firstChild);
+      }
+    }
+    if (cmpEl) {
+      cmpEl.style.display = profile.hidden.weekly ? "none" : "";
+      cmpEl.textContent = "Esta semana: tú " + formatHM(myWeek * 60) + " · " + profile.displayName + " " + formatHM(frWeek * 60);
+    }
+  } else if (cmpEl) cmpEl.style.display = "none";
 
   // header
   document.getElementById("fm-name").textContent = profile.displayName;
@@ -739,7 +1185,7 @@ async function showRichProfile(friendId, isSelf) {
     { val: profile.hidden.languages ? "---" : profile.languages.length, label: "idiomas" },
     { val: profile.hidden.streak ? "---" : "current", label: "racha actual", dynamic: !profile.hidden.streak },
     { val: profile.hidden.streak ? "---" : "longest", label: "mejor racha", dynamic: !profile.hidden.streak },
-    { val: profile.hidden.languages ? "---" : topLangHours + "h", label: topLang }
+    { val: profile.hidden.languages ? "---" : topLangHours + "h", label: esc(topLang) }
   ];
   var statColors = ["var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)"];
   document.getElementById("fm-stats").innerHTML = statCards.map(function(c, i) {
@@ -764,7 +1210,7 @@ async function showRichProfile(friendId, isSelf) {
       profile.languages.map(function(l, i) {
         var c = langColors[i % langColors.length];
         return '<div style="margin-bottom:0.35rem;">' +
-          '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>' + l.name + '</span><span style="font-family:var(--mono);color:var(--ink-soft);">' + Math.floor(l.minutes / 60) + 'h ' + l.minutes % 60 + 'm (' + l.sessions + ' ses)</span></div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>' + esc(l.name) + '</span><span style="font-family:var(--mono);color:var(--ink-soft);">' + Math.floor(l.minutes / 60) + 'h ' + l.minutes % 60 + 'm (' + l.sessions + ' ses)</span></div>' +
           '<div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden;"><div style="height:100%;width:' + l.pct + '%;border-radius:3px;background:' + c + ';transition:width 0.3s;"></div></div></div>';
       }).join("");
     document.getElementById("fm-langs").innerHTML = langHtml;
@@ -919,9 +1365,9 @@ async function showRichProfile(friendId, isSelf) {
     var recentHtml = profile.recent.length === 0 ? '<p style="margin:0;font-size:12px;color:var(--ink-soft);">Sin sesiones</p>' :
     profile.recent.slice(0, 8).map(function(s) {
       var mins = Math.round((s.seconds || 0) / 60);
-      var langBadge = s.lang ? '<span style="display:inline-block;margin-left:0.4rem;padding:0 6px;font-size:8px;line-height:16px;border-radius:4px;background:var(--accent-soft);color:var(--accent);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.3px;">' + s.lang + '</span>' : "";
+      var langBadge = s.lang ? '<span style="display:inline-block;margin-left:0.4rem;padding:0 6px;font-size:8px;line-height:16px;border-radius:4px;background:var(--accent-soft);color:var(--accent);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.3px;">' + esc(s.lang) + '</span>' : "";
       var fmt = mins > 0 ? (function(h,m){return h?h+"h"+(m?" "+m+"m":""):m+"m"})(Math.floor(mins/60), mins%60) : "—";
-      return '<div style="display:flex;align-items:center;padding:0.3rem 0;border-bottom:1px solid var(--line);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;color:var(--ink);">' + s.note + '</span><span style="display:flex;align-items:center;flex-shrink:0;">' + langBadge + '<span style="font-family:var(--mono);color:var(--ink-soft);margin-left:0.4rem;font-size:11px;">' + fmt + '</span></span></div>';
+      return '<div style="display:flex;align-items:center;padding:0.3rem 0;border-bottom:1px solid var(--line);"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;color:var(--ink);">' + esc(s.note) + '</span><span style="display:flex;align-items:center;flex-shrink:0;">' + langBadge + '<span style="font-family:var(--mono);color:var(--ink-soft);margin-left:0.4rem;font-size:11px;">' + fmt + '</span></span></div>';
     }).join("");
     document.getElementById("fm-recent").innerHTML = recentHtml;
   }
@@ -936,10 +1382,8 @@ async function showRichProfile(friendId, isSelf) {
       removeBtn.onmouseenter = function() { this.style.background = "var(--accent)"; this.style.color = "#fff"; };
       removeBtn.onmouseleave = function() { this.style.background = "transparent"; this.style.color = "var(--accent)"; };
       removeBtn.onclick = function() {
-        if (confirm("Eliminar amigo?")) {
-          removeFriend(friendId);
-          overlay.style.display = "none";
-        }
+        overlay.style.display = "none";
+        removeFriend(friendId);
       };
     }
   }
@@ -948,6 +1392,7 @@ async function showRichProfile(friendId, isSelf) {
   if (closeX) closeX.onclick = function() { overlay.style.display = "none"; };
   // click outside to close
   overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = "none"; };
+  renderProfileAchievements(friendId, isOwn, profile);
 
   overlay.style.display = "flex";
   } catch (e) { console.error("showRichProfile error:", e); }
@@ -1062,7 +1507,7 @@ function handlePhotoUploadDataUrl(dataUrl) {
   var navIcon = document.getElementById("profile-avatar");
   if (navImg) { navImg.src = dataUrl; navImg.style.display = "block"; }
   if (navIcon) navIcon.style.display = "none";
-  firebase.firestore().collection("users").doc(fbUser.uid).update({ avatarBase64: dataUrl }).then(function() {
+  firebase.firestore().collection("users").doc(fbUser.uid).set({ avatarBase64: dataUrl }, { merge: true }).then(function() {
     updateProfileUI();
     setSyncStatus("Foto actualizada");
     setTimeout(function() { setSyncStatus(""); }, 2000);
@@ -1081,6 +1526,17 @@ function handlePhotoUpload(file) {
 
 function renderSocialPage() {
   if (!fbUser) return;
+  if (!isEmailVerifiedForSocial()) {
+    var codeEl0 = document.getElementById("social-friend-code");
+    if (codeEl0) codeEl0.textContent = "---";
+    var list0 = document.getElementById("social-friends-list");
+    if (list0) list0.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">⚠️ Verifica tu email para ver amigos y ranking. Revisa tu bandeja o reenvía el correo desde tu perfil.</p>';
+    var feed0 = document.getElementById("social-activity-feed");
+    if (feed0) feed0.innerHTML = "";
+    var sec0 = document.getElementById("social-requests-section");
+    if (sec0) sec0.style.display = "none";
+    return;
+  }
   getMyFriendCode().then(function(c) {
     var codeEl = document.getElementById("social-friend-code");
     if (codeEl) codeEl.textContent = c || "---";
@@ -1088,6 +1544,9 @@ function renderSocialPage() {
   loadSocialFriendsList();
   loadSocialActivityFeed();
   loadSocialPendingRequests();
+  loadSocialSentRequests();
+  renderMyAchievements();
+  checkSocialAchievements();
 }
 
 var socialRankMode = "general";
@@ -1107,35 +1566,81 @@ async function loadSocialFriendsList() {
     el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">A&uacute;n no tienes amigos. Comparte tu c&oacute;digo o a&ntilde;ade a alguien.</p>';
     return;
   }
-  el.innerHTML = friends.map(function(f, i) {
-    var hours = Math.floor(f.totalMinutes / 60);
-    var mins = f.totalMinutes % 60;
+  var showAllRank = !!loadSocialFriendsList.showAll;
+  var visibleFriends = showAllRank ? friends : friends.slice(0, 25);
+  var _rank = 0, _prevMins = null;
+  el.innerHTML = visibleFriends.map(function(f, i) {
+    if (f.totalMinutes !== _prevMins) { _rank = i + 1; _prevMins = f.totalMinutes; }
+    var timeLabel = f.isPrivate ? "🔒 privado" : (Math.floor(f.totalMinutes / 60) + "h " + (f.totalMinutes % 60) + "m");
     var isSelf = f.isSelf;
-    var nameLabel = f.displayName + (isSelf ? ' <span style="color:var(--ink-soft);font-weight:400;font-size:11px;">(t&uacute;)</span>' : '');
+    var nameLabel = esc(f.displayName) + (isSelf ? ' <span style="color:var(--ink-soft);font-weight:400;font-size:11px;">(t&uacute;)</span>' : '');
     var rankColors = ['#d4a017', '#a8a8a8', '#cd7f32']; // gold, silver, bronze
-    var rankBg = i < 3 ? rankColors[i] : (isSelf ? 'var(--accent)' : 'var(--surface2)');
-    var rankColor = i < 3 ? '#fff' : (isSelf ? '#fff' : 'var(--ink-soft)');
+    var rankBg = _rank <= 3 ? rankColors[_rank - 1] : (isSelf ? 'var(--accent)' : 'var(--surface2)');
+    var rankColor = _rank <= 3 ? '#fff' : (isSelf ? '#fff' : 'var(--ink-soft)');
     var rowBg = isSelf ? 'var(--accent-soft)' : '';
     return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0.6rem;border-bottom:1px solid var(--line);font-size:13px;' + (rowBg ? 'background:' + rowBg + ';border-radius:6px;' : '') + '" data-id="' + f.id + '">' +
-      '<span style="width:22px;height:22px;border-radius:50%;background:' + rankBg + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:' + rankColor + ';' + (isSelf ? '' : 'cursor:pointer;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + (i + 1) + '</span>' +
+      '<span style="width:22px;height:22px;border-radius:50%;background:' + rankBg + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:' + rankColor + ';' + (isSelf ? '' : 'cursor:pointer;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + (_rank) + '</span>' +
       '<span style="flex:1;' + (isSelf ? '' : 'cursor:pointer;color:var(--accent);font-weight:500;') + '" ' + (isSelf ? '' : 'class="s-friend-profile"') + ' data-id="' + f.id + '">' + nameLabel + '</span>' +
-      '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;text-align:right;min-width:4.5rem;">' + hours + 'h ' + mins + 'm</span>' +
+      '<span style="font-family:var(--mono);color:var(--ink-soft);font-size:12px;text-align:right;min-width:4.5rem;">' + timeLabel + '</span>' +
       '</div>';
   }).join("");
+  if (!showAllRank && friends.length > visibleFriends.length) {
+    el.innerHTML += '<button id="social-rank-more" class="secondary" style="width:100%;margin-top:0.5rem;font-size:12px;">Ver los ' + (friends.length - visibleFriends.length) + ' restantes</button>';
+    document.getElementById("social-rank-more").addEventListener("click", function() {
+      loadSocialFriendsList.showAll = true;
+      loadSocialFriendsList();
+    });
+  }
   el.querySelectorAll(".s-friend-profile").forEach(function(el2) {
     el2.addEventListener("click", function() { showFriendProfile(this.dataset.id); });
   });
 }
 
+var feedLimit = 10, feedFriendFilter = "", feedLangFilter = "", lastFeedItems = [];
+
 async function loadSocialActivityFeed() {
   var el = document.getElementById("social-activity-feed");
+  if (!el || !fbUser) return;
+  lastFeedItems = await getFriendActivityFeed(Math.max(feedLimit, 10));
+  populateFeedFilters();
+  renderFeedItems();
+}
+
+function populateFeedFilters() {
+  var fSel = document.getElementById("feed-filter-friend");
+  if (fSel) {
+    var seen = {}, opts = '<option value="">Todos los amigos</option>';
+    lastFeedItems.forEach(function(it) {
+      if (!seen[it.friendId]) { seen[it.friendId] = true; opts += '<option value="' + it.friendId + '">' + esc(it.friendName) + '</option>'; }
+    });
+    fSel.innerHTML = opts;
+    fSel.value = (feedFriendFilter && seen[feedFriendFilter]) ? feedFriendFilter : "";
+    feedFriendFilter = fSel.value;
+  }
+  var lSel = document.getElementById("feed-filter-lang");
+  if (lSel) {
+    var langs = state.languages || [];
+    lSel.innerHTML = '<option value="">Todos los idiomas</option>' + langs.map(function(l) { return '<option value="' + esc(l) + '">' + esc(l) + '</option>'; }).join("");
+    lSel.value = langs.includes(feedLangFilter) ? feedLangFilter : "";
+    feedLangFilter = lSel.value;
+  }
+}
+
+function renderFeedItems() {
+  var el = document.getElementById("social-activity-feed");
   if (!el) return;
-  var items = await getFriendActivityFeed();
-  if (items.length === 0) {
+  var items = lastFeedItems.filter(function(it) {
+    if (feedFriendFilter && it.friendId !== feedFriendFilter) return false;
+    if (feedLangFilter && it.lang !== feedLangFilter) return false;
+    return true;
+  });
+  var moreBtn = document.getElementById("feed-more-btn");
+  if (!items.length) {
     el.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">Sin actividad reciente de amigos</p>';
+    if (moreBtn) moreBtn.style.display = "none";
     return;
   }
-  el.innerHTML = items.map(function(item) {
+  el.innerHTML = items.slice(0, feedLimit).map(function(item) {
     var mins = Math.round((item.seconds || 0) / 60);
     var t = '';
     if (item.ts) {
@@ -1146,14 +1651,15 @@ async function loadSocialActivityFeed() {
       else t = Math.floor(diff / 86400000) + 'd';
     }
     return '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0;font-size:12px;border-bottom:1px solid var(--line);">' +
-      '<span style="font-weight:500;cursor:pointer;color:var(--accent);" class="s-friend-profile" data-id="' + item.friendId + '">' + item.friendName + '</span>' +
-      '<span style="color:var(--ink-soft);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (item.note || item.cat || "") + '</span>' +
+      '<span style="font-weight:500;cursor:pointer;color:var(--accent);" class="s-friend-profile" data-id="' + item.friendId + '">' + esc(item.friendName) + '</span>' +
+      '<span style="color:var(--ink-soft);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(item.note || item.cat || "") + '</span>' +
       '<span style="font-family:var(--mono);color:var(--ink-soft);">' + mins + 'm</span>' +
       (t ? '<span style="color:var(--ink-soft);font-size:10px;">' + t + '</span>' : '') + '</div>';
   }).join("");
   el.querySelectorAll(".s-friend-profile").forEach(function(el2) {
     el2.addEventListener("click", function() { showFriendProfile(this.dataset.id); });
   });
+  if (moreBtn) moreBtn.style.display = items.length > feedLimit ? "" : "none";
 }
 
 async function loadSocialPendingRequests() {
@@ -1168,7 +1674,7 @@ async function loadSocialPendingRequests() {
   snap.forEach(function(doc) {
     var d = doc.data();
     html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;font-size:13px;border-bottom:1px solid var(--line);">' +
-      '<span style="flex:1;font-weight:500;">' + (d.fromName || "Alguien") + '</span>' +
+      '<span style="flex:1;font-weight:500;">' + esc(d.fromName || "Alguien") + '</span>' +
       '<button class="social-req-accept" data-id="' + doc.id + '" data-from="' + d.from + '" style="font-size:11px;padding:0.25rem 0.6rem;border:none;border-radius:4px;background:var(--green);color:#fff;cursor:pointer;">Aceptar</button>' +
       '<button class="social-req-decline" data-id="' + doc.id + '" style="font-size:11px;padding:0.25rem 0.6rem;border:none;border-radius:4px;background:var(--line);color:var(--ink-soft);cursor:pointer;">Rechazar</button></div>';
   });
@@ -1189,6 +1695,7 @@ saveState = function() {
     }
     lastSessionLen = state.sessions.length;
     saveCloudState();
+    writePublicStats(false);
   }
 };
 
@@ -1218,18 +1725,18 @@ saveState = function() {
     var pass = document.getElementById("prof-pass").value;
     var name = document.getElementById("prof-name").value.trim() || email.split("@")[0];
     if (!email || !pass) { setStatus(document.getElementById("prof-status"), "Completa todos los campos", "err"); return; }
-    if (pass.length < 6) { setStatus(document.getElementById("prof-status"), "La contrasea debe tener al menos 6 caracteres", "err"); return; }
+    if (pass.length < 6) { setStatus(document.getElementById("prof-status"), "La contraseña debe tener al menos 6 caracteres", "err"); return; }
     try { await fbSignUp(email, pass, name); setStatus(document.getElementById("prof-status"), " Cuenta creada. Verifica tu email.", "ok"); closeProfileDropdown(); }
-    catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
+    catch (e) { setStatus(document.getElementById("prof-status"), translateAuthError(e), "err"); }
   });
 
   var loginBtn = document.getElementById("prof-login-btn");
   if (loginBtn) loginBtn.addEventListener("click", async function() {
     var email = document.getElementById("prof-email").value.trim();
     var pass = document.getElementById("prof-pass").value;
-    if (!email || !pass) { setStatus(document.getElementById("prof-status"), "Introduce email y contrasea", "err"); return; }
-    try { await fbSignIn(email, pass); setStatus(document.getElementById("prof-status"), " Sesin iniciada", "ok"); closeProfileDropdown(); }
-    catch (e) { setStatus(document.getElementById("prof-status"), e.message, "err"); }
+    if (!email || !pass) { setStatus(document.getElementById("prof-status"), "Introduce email y contraseña", "err"); return; }
+    try { await fbSignIn(email, pass); setStatus(document.getElementById("prof-status"), " Sesión iniciada", "ok"); closeProfileDropdown(); }
+    catch (e) { setStatus(document.getElementById("prof-status"), translateAuthError(e), "err"); }
   });
 
   var googleBtn = document.getElementById("prof-google-btn");
@@ -1297,12 +1804,123 @@ saveState = function() {
       }, 1200);
       updateProfileUI();
     } catch (e) {
-      if (status) { status.textContent = e.message; status.style.color = "#d32f2f"; }
+      if (status) { status.textContent = translateAuthError(e); status.style.color = "#d32f2f"; }
     }
   });
 
+  // account view nav
+  var accountBtn = document.getElementById("prof-account-btn");
+  if (accountBtn) accountBtn.addEventListener("click", function() {
+    var loggedIn = document.getElementById("prof-logged-in");
+    var accView = document.getElementById("prof-account-view");
+    if (loggedIn) loggedIn.style.display = "none";
+    if (accView) accView.style.display = "block";
+  });
+  var accountBack = document.getElementById("prof-account-back");
+  if (accountBack) accountBack.addEventListener("click", function() {
+    var loggedIn = document.getElementById("prof-logged-in");
+    var accView = document.getElementById("prof-account-view");
+    if (loggedIn) loggedIn.style.display = "block";
+    if (accView) accView.style.display = "none";
+  });
+
+  // change password (requires re-auth)
+  var passSave = document.getElementById("prof-pass-save");
+  if (passSave) passSave.addEventListener("click", async function() {
+    var status2 = document.getElementById("prof-account-status");
+    try {
+      var cur = document.getElementById("prof-pass-current").value;
+      var nw = document.getElementById("prof-pass-new").value;
+      var rp = document.getElementById("prof-pass-repeat").value;
+      if (!cur || !nw || !rp) throw { message: "Completa los tres campos." };
+      if (nw.length < 6) throw { code: "auth/weak-password" };
+      if (nw !== rp) throw { message: "La nueva contraseña no coincide." };
+      var cred = firebase.auth.EmailAuthProvider.credential(fbUser.email, cur);
+      await fbUser.reauthenticateWithCredential(cred);
+      await fbUser.updatePassword(nw);
+      document.getElementById("prof-pass-current").value = "";
+      document.getElementById("prof-pass-new").value = "";
+      document.getElementById("prof-pass-repeat").value = "";
+      setStatus(status2, "✓ Contraseña actualizada.", "ok");
+    } catch (e) { setStatus(status2, translateAuthError(e), "err"); }
+  });
+
+  // change email (verified before applying)
+  var emailSave = document.getElementById("prof-email-save");
+  if (emailSave) emailSave.addEventListener("click", async function() {
+    var status3 = document.getElementById("prof-account-status");
+    try {
+      var newEmail = document.getElementById("prof-new-email").value.trim();
+      if (!newEmail) throw { message: "Escribe el nuevo email." };
+      if (typeof fbUser.verifyBeforeUpdateEmail === "function") await fbUser.verifyBeforeUpdateEmail(newEmail);
+      else await fbUser.updateEmail(newEmail);
+      document.getElementById("prof-new-email").value = "";
+      setStatus(status3, "✓ Revisa tu nuevo email para confirmar el cambio.", "ok");
+    } catch (e) { setStatus(status3, translateAuthError(e), "err"); }
+  });
+
+  // resend verification email
+  var resendBtn = document.getElementById("prof-resend-btn");
+  if (resendBtn) resendBtn.addEventListener("click", async function() {
+    try {
+      await fbUser.sendEmailVerification();
+      resendBtn.textContent = "¡Enviado! Revisa tu email";
+      setTimeout(function() { resendBtn.textContent = "Reenviar verificación"; }, 4000);
+    } catch (e) {
+      resendBtn.textContent = translateAuthError(e);
+      setTimeout(function() { resendBtn.textContent = "Reenviar verificación"; }, 4000);
+    }
+  });
+
+  // forgot password (from logged-out view, uses typed email)
+  var forgotBtn = document.getElementById("prof-forgot-btn");
+  if (forgotBtn) forgotBtn.addEventListener("click", async function() {
+    var statusEl = document.getElementById("prof-status");
+    try {
+      var email = document.getElementById("prof-email").value.trim();
+      if (!email) throw { message: "Escribe tu email arriba primero." };
+      await firebase.auth().sendPasswordResetEmail(email);
+      setStatus(statusEl, "✓ Email de recuperación enviado.", "ok");
+    } catch (e) { setStatus(statusEl, translateAuthError(e), "err"); }
+  });
+
+  // remove profile photo (back to Gravatar/initial)
+  var photoRemove = document.getElementById("prof-photo-remove");
+  if (photoRemove) photoRemove.addEventListener("click", async function() {
+    try {
+      await firebase.firestore().collection("users").doc(fbUser.uid).set({ avatarBase64: "" }, { merge: true });
+      updateProfileUI();
+      setSyncStatus("Foto eliminada");
+      setTimeout(function() { setSyncStatus(""); }, 2000);
+    } catch (e) { console.warn("Photo remove failed", e); }
+  });
+
+  // name/bio live counters
+  function bindCount(inputId, countId) {
+    var inp = document.getElementById(inputId), cnt = document.getElementById(countId);
+    if (!inp || !cnt) return;
+    var upd = function() { cnt.textContent = inp.value.length; };
+    inp.addEventListener("input", upd);
+    upd();
+  }
+  bindCount("prof-edit-name-input", "prof-name-count");
+  bindCount("prof-edit-bio", "prof-bio-count");
+
+  // eliminar cuenta (zona de peligro en Config)
+  var delBtn = document.getElementById("delete-account-btn");
+  if (delBtn) delBtn.addEventListener("click", async function() {
+    var statusEl = document.getElementById("delete-account-status");
+    try {
+      var pw = document.getElementById("delete-account-pass").value;
+      await fbDeleteAccount(pw);
+      setStatus(statusEl, "✓ Cuenta eliminada.", "ok");
+      document.getElementById("delete-account-confirm").value = "";
+      document.getElementById("delete-account-pass").value = "";
+    } catch (e) { setStatus(statusEl, translateAuthError(e), "err"); }
+  });
+
   // privacy settings toggles
-  var privacyKeys = ["total", "languages", "weekly", "daily", "recent", "streak"];
+  var privacyKeys = ["total", "languages", "weekly", "daily", "recent", "streak", "avatar", "bio", "feed", "ranking"];
   function loadPrivacySettings() {
     var saved = {};
     try { saved = JSON.parse(localStorage.getItem("privacy") || "{}"); } catch(e) {}
@@ -1321,6 +1939,7 @@ saveState = function() {
     if (fbUser) {
       firebase.firestore().collection("users").doc(fbUser.uid).update({ privacy: settings }).catch(function(){});
     }
+    writePublicStats(true); // republicar con el nuevo filtro
   }
   // init toggles from saved settings
   var privacySettings = loadPrivacySettings();
@@ -1345,7 +1964,15 @@ saveState = function() {
   function setupPhotoInput(id) {
     var el = document.getElementById(id);
     if (el) el.addEventListener("change", function() {
-      if (this.files && this.files[0]) openCropModal(this.files[0]);
+      if (this.files && this.files[0]) {
+        if (this.files[0].size > 5 * 1024 * 1024) {
+          setSyncStatus("Foto demasiado grande (máx. 5 MB)");
+          setTimeout(function() { setSyncStatus(""); }, 2500);
+          this.value = "";
+          return;
+        }
+        openCropModal(this.files[0]);
+      }
     });
   }
   setupPhotoInput("prof-photo-input");
@@ -1395,6 +2022,23 @@ saveState = function() {
 
   /* ---------- SOCIAL PAGE EVENTS ---------- */
 
+  var feedFriendSel = document.getElementById("feed-filter-friend");
+  if (feedFriendSel) feedFriendSel.addEventListener("change", function() { feedFriendFilter = this.value; renderFeedItems(); });
+  var feedLangSel = document.getElementById("feed-filter-lang");
+  if (feedLangSel) feedLangSel.addEventListener("change", function() { feedLangFilter = this.value; renderFeedItems(); });
+  var feedMore = document.getElementById("feed-more-btn");
+  if (feedMore) feedMore.addEventListener("click", function() {
+    feedLimit += 10;
+    if (feedLimit > lastFeedItems.length) loadSocialActivityFeed();
+    else renderFeedItems();
+  });
+  // refresco silencioso del feed cada 60 s (solo con Social visible)
+  setInterval(function() {
+    if (!fbUser || !isEmailVerifiedForSocial()) return;
+    var socialPage = document.getElementById("page-social");
+    if (socialPage && socialPage.classList.contains("active")) loadSocialActivityFeed();
+  }, 60000);
+
   var socialAddBtn = document.getElementById("social-add-friend-btn");
   if (socialAddBtn) socialAddBtn.addEventListener("click", async function() {
     var input = document.getElementById("social-friend-input");
@@ -1403,8 +2047,10 @@ saveState = function() {
     try {
       await addFriendByCode(code);
       setStatus(document.getElementById("social-friend-status"), " Solicitud enviada", "ok");
-      if (input) input.value = "";
-    } catch (e) { setStatus(document.getElementById("social-friend-status"), e.message, "err"); }
+      var input2 = document.getElementById("social-friend-input");
+      if (input2) input2.value = "";
+      loadSocialSentRequests();
+    } catch (e) { setStatus(document.getElementById("social-friend-status"), translateAuthError(e), "err"); }
   });
 
   var socialCopyBtn = document.getElementById("social-copy-code");

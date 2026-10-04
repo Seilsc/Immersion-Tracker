@@ -161,7 +161,7 @@ document.getElementById("tmdb-key-clear").addEventListener("click", () => {
     highlightedIndex = -1;
     if (!items.length) { dropdown.classList.remove("open"); return; }
     dropdown.innerHTML = items.map((item, i) =>
-      `<div class="lang-dropdown-item${item.isCustom ? ' custom' : ''}" data-index="${i}">${item.label}</div>`
+      `<div class="lang-dropdown-item${item.isCustom ? ' custom' : ''}" data-index="${i}">${esc(item.label)}</div>`
     ).join("");
     dropdown.classList.add("open");
     dropdown.querySelectorAll(".lang-dropdown-item").forEach(el => {
