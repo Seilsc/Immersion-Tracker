@@ -1951,7 +1951,7 @@ saveState = function() {
   });
 
   // account accordion (password / email blocks)
-  [["prof-acc-pass-toggle", "prof-acc-pass-body"], ["prof-acc-email-toggle", "prof-acc-email-body"]].forEach(function(pair) {
+  [["prof-acc-pass-toggle", "prof-acc-pass-body"], ["prof-acc-email-toggle", "prof-acc-email-body"], ["prof-acc-reset-toggle", "prof-acc-reset-body"]].forEach(function(pair) {
     var t = document.getElementById(pair[0]);
     var b = document.getElementById(pair[1]);
     if (t && b) t.addEventListener("click", function() {
