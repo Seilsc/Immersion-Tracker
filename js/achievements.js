@@ -200,15 +200,14 @@ async function getFriendAchievementIds(userId) {
 
 // Vitrina en el modal rico (propio y ajeno; oculta si el amigo esconde totales).
 async function renderProfileAchievements(friendId, isOwn, profile) {
-  var anchor = document.getElementById("fm-recent-section");
+  var home = document.getElementById("fm-tab-achievements");
+  if (!home) return;
   var box = document.getElementById("fm-achievements");
-  if (!box && anchor && anchor.parentNode) {
+  if (!box) {
     box = document.createElement("div");
     box.id = "fm-achievements";
-    box.style.marginBottom = "1rem";
-    anchor.parentNode.insertBefore(box, anchor);
+    home.appendChild(box);
   }
-  if (!box) return;
   if (!isOwn && profile.hidden.total) { box.style.display = "none"; return; }
   box.style.display = "";
   var ids = isOwn ? getUnlockedAchievements() : await getFriendAchievementIds(friendId);

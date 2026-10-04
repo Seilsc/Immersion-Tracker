@@ -186,11 +186,49 @@
   .prof-accent-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .prof-accent-btn { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; transition: transform 0.1s; }
   .prof-accent-btn:hover { transform: scale(1.12); opacity: 1; }
+  .prof-acct-card { background: var(--surface2); border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem; margin-bottom: 0.6rem; }
+  .prof-acct-card .prof-field-icon:last-of-type { margin-bottom: 0.7rem; }
+
+  /* FOCUS VISIBLE */
+  .prof-menu-item:focus-visible, .fm-tab:focus-visible, .prof-sub-back:focus-visible,
+  .prof-auth-google:focus-visible, .prof-pass-toggle:focus-visible, .prof-link:focus-visible,
+  .prof-accent-btn:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
 
   /* ACHIEVEMENT ICONS */
   .ach-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); color: var(--gold); flex-shrink: 0; }
   .ach-icon svg { width: 20px; height: 20px; display: block; }
   .ach-icon.locked { color: var(--ink-soft); opacity: 0.4; }
+
+  /* RICH PROFILE MODAL */
+  .fm-hero { padding: 2.75rem 1.5rem 1.25rem; background: linear-gradient(135deg, var(--green), var(--green-soft)); color: #fff; }
+  .fm-hero-main { display: flex; align-items: center; gap: 1rem; }
+  .fm-avatar { width: 84px; height: 84px; border-radius: 50%; background: rgba(255,255,255,0.2); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 34px; font-family: var(--serif); flex-shrink: 0; overflow: hidden; background-size: cover; background-position: center; border: 3px solid rgba(255,255,255,0.5); box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+  .fm-name { font-family: var(--serif); font-size: 22px; font-weight: 600; line-height: 1.2; }
+  .fm-bio { font-size: 12.5px; opacity: 0.88; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .fm-pills { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.55rem; }
+  .fm-pill { font-family: var(--mono); font-size: 10.5px; padding: 0.2rem 0.65rem; border-radius: 100px; background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.28); }
+  .fm-pill:empty { display: none; }
+  .fm-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+  .fm-btn { flex: 1; padding: 0.55rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.55); background: rgba(255,255,255,0.16); color: #fff; cursor: pointer; font-size: 13px; font-weight: 600; font-family: var(--sans); }
+  .fm-btn:hover { background: rgba(255,255,255,0.3); opacity: 1; }
+  .fm-body { padding: 1.25rem 1.5rem 1.5rem; }
+  .fm-kpis { margin-bottom: 1.25rem; }
+  .fm-kpis .kpi-value { font-size: 1.25rem; }
+  .fm-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--line); margin-bottom: 1.25rem; }
+  .fm-tab { background: transparent; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 0.55rem 0.9rem; font-size: 13px; font-weight: 600; color: var(--ink-soft); cursor: pointer; font-family: var(--sans); }
+  .fm-tab:hover { color: var(--ink); opacity: 1; }
+  .fm-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .fm-tabpage { display: none; }
+  .fm-tabpage.active { display: block; }
+  .fm-section { margin-bottom: 1.25rem; }
+  .fm-section:last-child { margin-bottom: 0; }
+  .fm-section-title { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-soft); margin-bottom: 0.6rem; }
+  @media (max-width: 600px) {
+    .fm-hero-main { flex-direction: column; text-align: center; }
+    .fm-body { padding: 1rem 1rem 1.25rem; }
+  }
 
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
@@ -960,28 +998,32 @@
       </div>
       <div id="prof-pass-section">
         <div class="prof-section-label">Cambiar contraseña</div>
-        <div class="prof-field">
-          <label for="prof-pass-current">Contraseña actual</label>
-          <input type="password" id="prof-pass-current" placeholder="••••••" autocomplete="current-password" />
+        <div class="prof-acct-card">
+        <div class="prof-field-icon">
+          <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <input type="password" id="prof-pass-current" placeholder="Contraseña actual" autocomplete="current-password" aria-label="Contraseña actual" />
         </div>
-        <div class="prof-field">
-          <label for="prof-pass-new">Nueva contraseña</label>
-          <input type="password" id="prof-pass-new" placeholder="mín. 6 caracteres" autocomplete="new-password" />
+        <div class="prof-field-icon">
+          <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <input type="password" id="prof-pass-new" placeholder="Nueva (mín. 6 caracteres)" autocomplete="new-password" aria-label="Nueva contraseña" />
         </div>
-        <div class="prof-field">
-          <label for="prof-pass-repeat">Repite la nueva</label>
-          <input type="password" id="prof-pass-repeat" placeholder="repite la nueva" autocomplete="new-password" />
+        <div class="prof-field-icon" style="margin-bottom:0.7rem;">
+          <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <input type="password" id="prof-pass-repeat" placeholder="Repite la nueva" autocomplete="new-password" aria-label="Repetir contraseña" />
         </div>
         <button id="prof-pass-save" class="prof-auth-primary">Cambiar contraseña</button>
+        </div>
         <div class="prof-section-label">¿No recuerdas la actual?</div>
         <button id="prof-reset-btn" class="secondary" style="width:100%;padding:0.45rem;"><span class="grow">Enviar email de restablecimiento</span></button>
       </div>
       <div class="prof-section-label">Email</div>
-      <div class="prof-field">
-        <label for="prof-new-email">Cambiar email</label>
-        <input type="email" id="prof-new-email" placeholder="nuevo@ejemplo.com" autocomplete="email" />
+      <div class="prof-acct-card">
+      <div class="prof-field-icon" style="margin-bottom:0.7rem;">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg></span>
+        <input type="email" id="prof-new-email" placeholder="Nuevo email" autocomplete="email" aria-label="Nuevo email" />
       </div>
       <button id="prof-email-save" class="secondary" style="width:100%;padding:0.45rem;">Cambiar email (pide verificación)</button>
+      </div>
       <p class="status-msg" id="prof-account-status"></p>
     </div>
 
@@ -1001,17 +1043,18 @@
           <div style="font-size:11px;color:var(--ink-soft);">Pulsa la foto para cambiarla.</div>
         </div>
       </div>
-      <div class="prof-field">
-        <label for="prof-edit-name-input">Nombre</label>
-          <input type="text" id="prof-edit-name-input" maxlength="40" placeholder="Tu nombre" />
-          <div style="font-size:10px;color:var(--ink-soft);text-align:right;"><span id="prof-name-count">0</span>/40</div>
+      <div class="prof-field-icon">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+        <input type="text" id="prof-edit-name-input" maxlength="40" placeholder="Tu nombre" aria-label="Nombre" />
       </div>
+      <div style="font-size:10px;color:var(--ink-soft);text-align:right;"><span id="prof-name-count">0</span>/40</div>
       <div class="prof-field">
         <label for="prof-edit-bio">Biografía</label>
           <textarea id="prof-edit-bio" rows="2" maxlength="300" style="resize:none;font-size:12px;font-family:var(--sans);" placeholder="Cuéntanos algo sobre ti..."></textarea>
           <div style="font-size:10px;color:var(--ink-soft);text-align:right;"><span id="prof-bio-count">0</span>/300</div>
       </div>
       <div class="prof-section-label">Color de acento</div>
+      <div class="prof-acct-card">
       <div class="prof-accent-row" role="radiogroup" aria-label="Color de acento">
           <button class="prof-accent-btn" data-color="#b3502e" style="background:#b3502e;" title="Terracota"></button>
           <button class="prof-accent-btn" data-color="#2f5d4f" style="background:#2f5d4f;" title="Verde"></button>
@@ -1022,6 +1065,7 @@
           <button class="prof-accent-btn" data-color="#2980b9" style="background:#2980b9;" title="Celeste"></button>
           <button class="prof-accent-btn" data-color="#8e44ad" style="background:#8e44ad;" title="Morado"></button>
         </div>
+      </div>
       <button id="prof-edit-save" class="prof-auth-primary" style="margin-top:0.8rem;">Guardar cambios</button>
       <p class="status-msg" id="prof-edit-status"></p>
     </div> 
@@ -1050,41 +1094,68 @@
 
 <!-- RICH PROFILE MODAL -->
 <div id="friend-modal-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
-  <div id="fm-scroll" style="position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;max-width:960px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 16px 64px rgba(0,0,0,0.25);">
+  <div id="fm-scroll" style="position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:0;max-width:960px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 16px 64px rgba(0,0,0,0.25);">
     <!-- close X -->
-    <button id="fm-close-x" style="position:absolute;top:0.75rem;right:0.75rem;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;padding:0;transition:background 0.15s;">&times;</button>
-    <!-- header -->
-    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;">
-      <div id="fm-avatar" style="width:64px;height:64px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:26px;flex-shrink:0;overflow:hidden;background-size:cover;background-position:center;border:2px solid var(--accent-soft);box-shadow:0 2px 8px rgba(0,0,0,0.12);"></div>
-      <div style="flex:1;min-width:0;">
-        <div id="fm-name" style="font-weight:600;font-size:18px;color:var(--ink);"></div>
-        <div id="fm-bio" style="font-size:12px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-        <div id="fm-friendcode" style="font-size:10px;color:var(--ink-soft);margin-top:2px;font-family:var(--mono);"></div>
+    <button id="fm-close-x" style="position:absolute;top:0.75rem;right:0.75rem;width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,0.5);background:rgba(0,0,0,0.25);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;padding:0;z-index:2;">&times;</button>
+    <!-- HERO -->
+    <div class="fm-hero" id="fm-hero">
+      <div class="fm-hero-main">
+        <div id="fm-avatar" class="fm-avatar"></div>
+        <div style="flex:1;min-width:0;">
+          <div id="fm-name" class="fm-name"></div>
+          <div id="fm-bio" class="fm-bio"></div>
+          <div class="fm-pills">
+            <span id="fm-friendcode" class="fm-pill"></span>
+            <span id="fm-pill-langs" class="fm-pill"></span>
+            <span id="fm-pill-streak" class="fm-pill"></span>
+          </div>
+        </div>
+      </div>
+      <div class="fm-actions">
+        <button id="fm-edit-own" class="fm-btn" style="display:none;">Editar perfil</button>
+        <button id="fm-remove" class="fm-btn danger" style="display:none;">Eliminar amigo</button>
       </div>
     </div>
-    <!-- stats cards -->
-    <div id="fm-stats" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1.25rem;"></div>
-    <!-- languages -->
-    <div id="fm-langs-section" style="margin-bottom:1.25rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.5px;">Idiomas</div>
-      <div id="fm-langs"></div>
+    <div class="fm-body">
+    <!-- KPI STRIP -->
+    <div id="fm-stats" class="kpi-row fm-kpis"></div>
+    <!-- TABS -->
+    <div class="fm-tabs" role="tablist" aria-label="Secciones del perfil">
+      <button class="fm-tab active" data-tab="overview" role="tab">Resumen</button>
+      <button class="fm-tab" data-tab="activity" role="tab">Actividad</button>
+      <button class="fm-tab" data-tab="achievements" role="tab">Logros</button>
     </div>
-    <!-- weekly chart -->
-    <div id="fm-chart-section" style="margin-bottom:1rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.5px;">Esta semana</div>
-      <div id="fm-chart" style="display:flex;align-items:flex-end;gap:4px;height:80px;"></div>
+    <div id="fm-tab-overview" class="fm-tabpage active">
+      <!-- weekly chart -->
+      <div id="fm-chart-section" class="fm-section">
+        <div class="fm-section-title">Esta semana</div>
+        <div id="fm-chart" style="display:flex;align-items:flex-end;gap:4px;height:80px;"></div>
+      </div>
+      <!-- languages -->
+      <div id="fm-langs-section" class="fm-section">
+        <div class="fm-section-title">Idiomas</div>
+        <div id="fm-langs"></div>
+      </div>
     </div>
-    <!-- daily activity heatmap -->
-    <div id="fm-daily-section" style="margin-bottom:1.25rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.5px;">Calendario de actividad</div>
-      <div id="fm-daily" style="overflow-x:auto;overflow-y:visible;min-width:0;"></div>
+    <div id="fm-tab-activity" class="fm-tabpage">
+      <!-- daily activity heatmap -->
+      <div id="fm-daily-section" class="fm-section">
+        <div class="fm-section-title">Calendario de actividad</div>
+        <div id="fm-daily" style="overflow-x:auto;overflow-y:visible;min-width:0;"></div>
+      </div>
+      <!-- recent -->
+      <div id="fm-recent-section" class="fm-section">
+        <div class="fm-section-title">Últimas sesiones</div>
+        <div id="fm-recent" style="max-height:120px;overflow-y:auto;font-size:12px;color:var(--ink-soft);"></div>
+      </div>
     </div>
-    <!-- recent -->
-    <div id="fm-recent-section" style="margin-bottom:0.8rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.5px;">&Uacute;ltimas sesiones</div>
-      <div id="fm-recent" style="max-height:120px;overflow-y:auto;font-size:12px;color:var(--ink-soft);"></div>
+    <div id="fm-tab-achievements" class="fm-tabpage">
+      <div class="fm-section">
+        <div class="fm-section-title">Logros</div>
+        <div id="fm-achievements"></div>
+      </div>
     </div>
-    <button id="fm-remove" style="width:100%;margin-top:0.5rem;padding:0.5rem;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);cursor:pointer;font-size:13px;font-weight:500;transition:background 0.15s;">Eliminar amigo</button>
+    </div>
   </div>
 </div>
 

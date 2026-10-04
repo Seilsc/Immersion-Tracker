@@ -970,6 +970,7 @@ async function getFriendPublicProfile(userId) {
     displayName: ud.displayName || "Usuario",
     bio: privacy.bio ? "" : (ud.bio || ""),
     avatarBase64: privacy.avatar ? "" : (ud.avatarBase64 || ud.avatarUrl || ""),
+    accentColor: ud.accentColor || "",
     friendCode: ud.friendCode || "",
     totalSessions: 0, totalMinutes: 0, languages: [],
     weekly: { days: [], max: 0 }, daily: [],
@@ -1187,14 +1188,26 @@ async function showRichProfile(friendId, isSelf) {
   // header
   document.getElementById("fm-name").textContent = profile.displayName;
   document.getElementById("fm-bio").textContent = profile.bio;
-  document.getElementById("fm-friendcode").innerHTML = profile.friendCode ? "C&oacute;digo: " + profile.friendCode : "";
+  document.getElementById("fm-friendcode").textContent = profile.friendCode ? "Código: " + profile.friendCode : "";
+  var langsPill = document.getElementById("fm-pill-langs");
+  if (langsPill) langsPill.textContent = profile.hidden.languages ? "" : ((profile.languages || []).length + ((profile.languages || []).length === 1 ? " idioma" : " idiomas"));
+  var streakPill = document.getElementById("fm-pill-streak");
+  if (streakPill) streakPill.textContent = profile.hidden.streak ? "" : ("Racha: " + (profile.streak ? profile.streak.current : 0) + " días");
   var avatarEl = document.getElementById("fm-avatar");
   if (profile.avatarBase64) {
     avatarEl.style.backgroundImage = "url(" + profile.avatarBase64 + ")";
+    avatarEl.textContent = "";
   } else {
-    avatarEl.textContent = profile.displayName[0].toUpperCase();
+    avatarEl.style.backgroundImage = "";
+    avatarEl.textContent = (profile.displayName || "?")[0].toUpperCase();
   }
-  if (avatarEl) avatarEl.style.backgroundColor = "";
+  var heroEl = document.getElementById("fm-hero");
+  if (heroEl) {
+    var heroAcc = isOwn
+      ? ((getComputedStyle(document.documentElement).getPropertyValue("--accent") || "").trim() || "#b3502e")
+      : (profile.accentColor || "#2f5d4f");
+    heroEl.style.background = "linear-gradient(135deg," + heroAcc + "," + heroAcc + "55)";
+  }
 
   // stats cards — 3 per row
   var totalH = Math.floor(profile.totalMinutes / 60);
@@ -1209,16 +1222,14 @@ async function showRichProfile(friendId, isSelf) {
     { val: profile.hidden.streak ? "---" : "longest", label: "mejor racha", dynamic: !profile.hidden.streak },
     { val: profile.hidden.languages ? "---" : topLangHours + "h", label: esc(topLang) }
   ];
-  var statColors = ["var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)", "var(--ink)"];
-  document.getElementById("fm-stats").innerHTML = statCards.map(function(c, i) {
+  document.getElementById("fm-stats").innerHTML = statCards.map(function(c) {
     var val = c.val;
     if (c.dynamic) {
       var key = c.val;
       var raw = profile.streak ? profile.streak[key] : 0;
-      val = raw + " d&iacute;a" + (raw !== 1 ? "s" : "");
+      val = raw + " días";
     }
-    var color = statColors[i % statColors.length];
-    return '<div style="flex:1;min-width:80px;padding:0.5rem 0.4rem;background:var(--surface2);border-radius:10px;text-align:center;border:1px solid var(--line);"><div style="font-weight:600;font-size:16px;color:' + color + ';">' + val + '</div><div style="color:var(--ink-soft);font-size:10px;text-transform:uppercase;letter-spacing:0.3px;margin-top:2px;">' + c.label + '</div></div>';
+    return '<div class="kpi-card"><div class="kpi-value">' + val + '</div><div class="kpi-label">' + esc(c.label) + '</div></div>';
   }).join("");
 
   // language bars
@@ -1394,15 +1405,26 @@ async function showRichProfile(friendId, isSelf) {
     document.getElementById("fm-recent").innerHTML = recentHtml;
   }
 
-  // remove button (only for friends, not self)
+  // action buttons: edit own profile vs remove friend
   var removeBtn = document.getElementById("fm-remove");
-  if (removeBtn) {
-    if (isOwn) {
-      removeBtn.style.display = "none";
-    } else {
+  var editOwnBtn = document.getElementById("fm-edit-own");
+  if (isOwn) {
+    if (removeBtn) removeBtn.style.display = "none";
+    if (editOwnBtn) {
+      editOwnBtn.style.display = "";
+      editOwnBtn.onclick = function() {
+        overlay.style.display = "none";
+        toggleProfileDropdown();
+        var loggedIn = document.getElementById("prof-logged-in");
+        var editView = document.getElementById("prof-edit-view");
+        if (loggedIn) loggedIn.style.display = "none";
+        if (editView) editView.style.display = "block";
+      };
+    }
+  } else {
+    if (editOwnBtn) editOwnBtn.style.display = "none";
+    if (removeBtn) {
       removeBtn.style.display = "";
-      removeBtn.onmouseenter = function() { this.style.background = "var(--accent)"; this.style.color = "#fff"; };
-      removeBtn.onmouseleave = function() { this.style.background = "transparent"; this.style.color = "var(--accent)"; };
       removeBtn.onclick = function() {
         overlay.style.display = "none";
         removeFriend(friendId);
@@ -1414,6 +1436,9 @@ async function showRichProfile(friendId, isSelf) {
   if (closeX) closeX.onclick = function() { overlay.style.display = "none"; };
   // click outside to close
   overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = "none"; };
+  // reset to first tab on open
+  var firstTab = document.querySelector('#fm-scroll .fm-tab[data-tab="overview"]');
+  if (firstTab) firstTab.click();
   renderProfileAchievements(friendId, isOwn, profile);
 
   overlay.style.display = "flex";
@@ -2144,6 +2169,14 @@ saveState = function() {
   var fmOverlay = document.getElementById("friend-modal-overlay");
   if (fmOverlay) fmOverlay.addEventListener("click", function(e) {
     if (e.target === fmOverlay) fmOverlay.style.display = "none";
+  });
+
+  // profile modal tabs (wired once)
+  document.querySelectorAll("#fm-scroll .fm-tab").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll("#fm-scroll .fm-tab").forEach(function(b) { b.classList.toggle("active", b === btn); });
+      document.querySelectorAll("#fm-scroll .fm-tabpage").forEach(function(p) { p.classList.toggle("active", p.id === "fm-tab-" + btn.dataset.tab); });
+    });
   });
 
 })();
