@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax check (node --check)
+        run: |
+          for f in js/*.js browser-extension/*.js browser-extension/lib/*.js; do
+            [ -e "$f" ] || continue
+            node --check "$f" && echo "OK $f"
+          done
+
+      # Genera js/firebase-config.js desde el secreto (nunca se commitea).
+      # Sin el secreto, la web se despliega igual pero sin login en la nube.
+      - name: Inject firebase config from secret
+        env:
+          FIREBASE_CONFIG_JSON: ${{ secrets.FIREBASE_CONFIG_JSON }}
+        run: |
+          if [ -n "$FIREBASE_CONFIG_JSON" ]; then
+            printf 'window.FIREBASE_CONFIG = %s;\n' "$FIREBASE_CONFIG_JSON" > js/firebase-config.js
+            echo "firebase-config.js generated from secret"
+          else
+            echo "No FIREBASE_CONFIG_JSON secret: deploying without cloud login"
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
