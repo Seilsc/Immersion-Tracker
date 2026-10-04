@@ -63,7 +63,7 @@ document.getElementById("import-json-file").addEventListener("change", e => {
         }
         setStatus(statusEl, "✓ Datos fusionados correctamente.", "ok");
       } else {
-        if (!confirm("⚠️ Esto borrará TODOS tus datos actuales y los reemplazará. ¿Seguro?")) {
+        if (!confirm("Esto borrará TODOS tus datos actuales y los reemplazará. ¿Seguro?")) {
           setStatus(statusEl, "Importación cancelada.", "");
           return;
         }

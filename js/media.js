@@ -266,7 +266,7 @@ function renderYoutube() {
   if (!filtered.length) { list.innerHTML = '<div class="empty-state">Todavía no has añadido ningún vídeo.</div>'; return; }
   filtered.forEach((video) => {
     const realIdx = state.youtube.indexOf(video);
-    const actOptions = MEDIA_ACTIVITIES.map(a => `<option value="${a.value}"${video.activity === a.value ? " selected" : ""}>${a.label}${a.manualTime ? " ⏱" : ""}</option>`).join("");
+    const actOptions = MEDIA_ACTIVITIES.map(a => `<option value="${a.value}"${video.activity === a.value ? " selected" : ""}>${a.label}</option>`).join("");
     const actDef = MEDIA_ACTIVITIES.find(a => a.value === video.activity);
     const isManual = actDef && actDef.manualTime;
     const effectiveSec = getYtEffectiveSeconds(video);
@@ -426,7 +426,7 @@ function renderShows() {
     const actDef = SHOW_ACTIVITIES.find(a => a.value === show.activity) || SHOW_ACTIVITIES[0];
     const isManualAct = actDef.manualTime;
     const epSec = show.epDuration * 60 * (show.episodesWatched || 0);
-    const actOptions = SHOW_ACTIVITIES.map(a => `<option value="${a.value}"${show.activity === a.value ? " selected" : ""}>${a.label}${a.manualTime ? " ⏱" : ""}</option>`).join("");
+    const actOptions = SHOW_ACTIVITIES.map(a => `<option value="${a.value}"${show.activity === a.value ? " selected" : ""}>${a.label}</option>`).join("");
     const card = document.createElement("div");
     card.className = "show-card";
     card.innerHTML = `
@@ -540,7 +540,7 @@ function renderMovies() {
     const realIdx = state.movies.indexOf(movie);
     const actDef = MEDIA_ACTIVITIES.find(a => a.value === movie.activity) || MEDIA_ACTIVITIES[0];
     const isManualAct = actDef.manualTime;
-    const actOptions = MEDIA_ACTIVITIES.map(a => `<option value="${a.value}"${movie.activity === a.value ? " selected" : ""}>${a.label}${a.manualTime ? " ⏱" : ""}</option>`).join("");
+    const actOptions = MEDIA_ACTIVITIES.map(a => `<option value="${a.value}"${movie.activity === a.value ? " selected" : ""}>${a.label}</option>`).join("");
     const entry = document.createElement("div");
     entry.className = "show-card";
     entry.innerHTML = `

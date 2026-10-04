@@ -134,6 +134,31 @@
   .prof-field input:focus { outline: none; border-color: var(--accent); }
   #prof-google-btn:hover { background: var(--surface2); border-color: var(--ink-soft); }
 
+  /* PROFILE MENU (logged-in) */
+  .prof-user-head { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.75rem; }
+  .prof-user-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--green); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 20px; flex-shrink: 0; overflow: hidden; position: relative; cursor: pointer; background-size: cover; background-position: center; }
+  .prof-user-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prof-user-email { font-size: 12px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prof-user-badge { font-size: 10px; font-family: var(--mono); margin-top: 3px; display: inline-block; padding: 1px 8px; border-radius: 100px; }
+  .prof-user-badge.ok { background: var(--green-soft); color: var(--green); }
+  .prof-user-badge.warn { background: var(--gold-soft); color: var(--gold); }
+  .prof-verify-banner { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; padding: 0.5rem 0.6rem; border: 1px solid var(--gold); border-radius: 8px; background: var(--gold-soft); font-size: 12px; color: var(--ink); }
+  .prof-menu { display: flex; flex-direction: column; gap: 2px; }
+  .prof-menu-item { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.55rem 0.6rem; border: none; border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; font-size: 13px; font-weight: 500; font-family: var(--sans); text-align: left; white-space: normal; }
+  .prof-menu-item:hover { background: var(--bg); opacity: 1; }
+  .prof-menu-item .grow { flex: 1; }
+  .prof-menu-item .ic { color: var(--ink-soft); }
+  .prof-menu-chev { color: var(--ink-soft); font-size: 16px; line-height: 1; }
+  .prof-menu-item.danger { color: var(--accent); }
+  .prof-menu-item.danger .ic { color: var(--accent); }
+  .prof-menu-item.danger:hover { background: var(--accent-soft); }
+  .prof-menu-sep { border: none; border-top: 1px solid var(--line); margin: 0.5rem 0; }
+
+  /* ACHIEVEMENT ICONS */
+  .ach-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); color: var(--gold); flex-shrink: 0; }
+  .ach-icon svg { width: 20px; height: 20px; display: block; }
+  .ach-icon.locked { color: var(--ink-soft); opacity: 0.4; }
+
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
   body { min-height: 100vh; padding: 2.5rem 1.5rem 5rem; }
@@ -233,6 +258,7 @@
   .activity-card-desc { font-size: 11px; color: var(--ink-soft); line-height: 1.5; }
   .activity-card .pin-btn { position: absolute; top: 6px; right: 6px; background: transparent; border: none; padding: 2px 6px; font-size: 12px; opacity: 0.35; cursor: pointer; }
   .activity-card:hover .pin-btn, .activity-card .pin-btn.pinned { opacity: 1; }
+  .activity-card .pin-btn.pinned { color: var(--accent); }
   .activity-cat-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); margin: 1.25rem 0 0.5rem; }
   .activity-cat-label:first-child { margin-top: 0; }
 
@@ -856,27 +882,31 @@
     </div>
     <!-- LOGGED IN -->
     <div id="prof-logged-in" style="display:none;">
-      <div id="prof-user-card" style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.5rem;">
-        <div id="prof-user-avatar" style="width:48px;height:48px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:20px;flex-shrink:0;overflow:hidden;position:relative;cursor:pointer;" title="Cambiar foto">
+      <div class="prof-user-head">
+        <div id="prof-user-avatar" class="prof-user-avatar" title="Cambiar foto">
           <input type="file" id="prof-photo-input" accept="image/*" aria-label="Cambiar foto" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
         </div>
-        <div style="flex:1;">
-          <div id="prof-user-name" style="font-weight:600;"></div>
-          <div id="prof-user-email" style="font-size:12px;color:var(--ink-soft);"></div>
+        <div style="flex:1;min-width:0;">
+          <div id="prof-user-name" class="prof-user-name"></div>
+          <div id="prof-user-email" class="prof-user-email"></div>
+          <span id="prof-user-badge" class="prof-user-badge ok" style="display:none;"></span>
         </div>
       </div>
 
-      <button id="prof-view-profile-btn" style="width:100%;margin-bottom:0.3rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:12px;">Ver mi perfil</button>
-      <button id="prof-edit-btn" style="width:100%;margin-bottom:0.3rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--accent);cursor:pointer;font-size:12px;">Editar perfil</button>
-      <button id="prof-account-btn" style="width:100%;margin-bottom:0.5rem;padding:0.4rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:12px;">Cuenta y seguridad</button>
-      <div id="prof-verify-banner" style="display:none;margin-bottom:0.5rem;padding:0.5rem;border:1px solid var(--gold);border-radius:8px;background:var(--gold-soft);font-size:12px;color:var(--ink);">
-        <div style="margin-bottom:0.4rem;">⚠️ Email sin verificar. Lo social está limitado.</div>
-        <button id="prof-resend-btn" style="width:100%;padding:0.3rem;font-size:12px;">Reenviar verificación</button>
+      <div id="prof-verify-banner" class="prof-verify-banner" style="display:none;">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+        <span style="flex:1;">Email sin verificar. Lo social está limitado.</span>
+        <button id="prof-resend-btn" class="secondary" style="font-size:11px;padding:0.25rem 0.6rem;white-space:nowrap;">Reenviar</button>
       </div>
 
-      <hr style="border:none;border-top:1px solid var(--line);margin:0.5rem 0;" />
-
-      <button class="danger-link" id="prof-logout-btn" style="width:100%;">Cerrar sesión</button>
+      <nav class="prof-menu" aria-label="Menú de perfil">
+        <button id="prof-view-profile-btn" class="prof-menu-item"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="grow">Ver mi perfil</span><span class="prof-menu-chev">›</span></button>
+        <button id="prof-edit-btn" class="prof-menu-item"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="grow">Editar perfil</span><span class="prof-menu-chev">›</span></button>
+        <button id="prof-account-btn" class="prof-menu-item"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><span class="grow">Cuenta y seguridad</span><span class="prof-menu-chev">›</span></button>
+        <button id="prof-reset-btn" class="prof-menu-item"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg></span><span class="grow">Restablecer contraseña</span></button>
+      </nav>
+      <hr class="prof-menu-sep" />
+      <button id="prof-logout-btn" class="prof-menu-item danger"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><path d="M21 12H9"/></svg></span><span class="grow">Cerrar sesión</span></button>
     </div>
 
     <!-- ACCOUNT VIEW -->
@@ -1167,7 +1197,7 @@
         </div>
         <div class="field" style="flex:1;min-width:170px;justify-content:flex-end;">
           <label aria-hidden="true">&nbsp;</label>
-          <button class="secondary" id="quick-register-btn" title="Guarda tu última actividad con su última duración">⚡ Registro rápido</button>
+          <button class="secondary" id="quick-register-btn" title="Guarda tu última actividad con su última duración"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span> Registro rápido</button>
         </div>
       </div>
 

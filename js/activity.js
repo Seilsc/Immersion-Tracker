@@ -37,7 +37,7 @@ function getGoalMotivation(pct) {
   if (pct < 0.5) return "Vas por buen camino.";
   if (pct < 0.75) return "¡Ya más de la mitad!";
   if (pct < 1) return "¡Casi lo tienes!";
-  return "🎉 ¡Objetivo alcanzado!";
+  return "¡Objetivo alcanzado!";
 }
 
 function renderGoalBar() {

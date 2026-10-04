@@ -84,7 +84,7 @@ function activityCardEl(act) {
   const card = document.createElement("div");
   card.className = "activity-card" + (selectedActivity === act.id ? " selected" : "");
   card.dataset.id = act.id;
-  card.innerHTML = `<button class="pin-btn${pinned ? " pinned" : ""}" data-pin="${esc(act.id)}" title="${pinned ? "Quitar de fijadas" : "Fijar actividad"}">📌</button><div class="activity-card-name">${esc(act.name)}</div><div class="activity-card-desc">${esc(act.desc)}</div>`;
+  card.innerHTML = `<button class="pin-btn${pinned ? " pinned" : ""}" data-pin="${esc(act.id)}" title="${pinned ? "Quitar de fijadas" : "Fijar actividad"}"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="${pinned ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button><div class="activity-card-name">${esc(act.name)}</div><div class="activity-card-desc">${esc(act.desc)}</div>`;
   card.onclick = () => selectActivity(act.id);
   card.querySelector(".pin-btn").onclick = (e) => { e.stopPropagation(); togglePinAct(act.id); buildActivitySelector(); };
   return card;
@@ -114,8 +114,8 @@ function buildActivitySelector() {
   const matches = a => !q || a.name.toLowerCase().includes(q) || a.cat.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q);
   let any = false;
   if (!q) {
-    if (pinned.length) { container.appendChild(activitySectionEl("📌 Fijadas", pinned)); any = true; }
-    if (recent.length) { container.appendChild(activitySectionEl("🕘 Recientes", recent)); any = true; }
+    if (pinned.length) { container.appendChild(activitySectionEl("Fijadas", pinned)); any = true; }
+    if (recent.length) { container.appendChild(activitySectionEl("Recientes", recent)); any = true; }
   }
   const cats = [...new Set(ACTIVITIES.map(a => a.cat))];
   cats.forEach(cat => {
@@ -377,7 +377,7 @@ document.getElementById("quick-register-btn").addEventListener("click", () => {
     if (panel) panel.classList.add("visible");
     document.getElementById("timer-activity-label").textContent = getActivityById(t.activityId).name;
   }
-  setStatus(document.getElementById("act-status"), `⏱ Timer recuperado (${formatHMS(secs)}). Pulsa Iniciar para continuar.`, "");
+  setStatus(document.getElementById("act-status"), `Timer recuperado (${formatHMS(secs)}). Pulsa Iniciar para continuar.`, "");
 })();
 
 /* ---------- DISPLAY PREFERENCE TOGGLES ---------- */

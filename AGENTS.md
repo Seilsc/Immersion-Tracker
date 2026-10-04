@@ -63,6 +63,7 @@ No OAuth, no Firebase, no auth in the extension. It only detects language + watc
 ## Conventions & quirks
 
 - **Mixed `var`/`const`/`let`** — match surrounding code.
+- **No emojis in the UI, ever.** Use inline SVG stroke icons (`fill="none" stroke="currentColor"`, 24×24 viewBox, round caps) matching the existing `.ic` style. Achievement icons live in the `ACH_ICONS` map (`js/achievements.js`). Plain text marks like ✓/✕ in status messages are acceptable (pre-existing convention).
 - **`FIREBASE_CONFIG`** lives in untracked `js/firebase-config.js` (copied from `js/firebase-config.example.js`, gitignored — never commit the real one). `js/firebase.js` reads it via `window.FIREBASE_CONFIG` and degrades gracefully without it.
 - **Compat SDK**, not modular: global `firebase.auth()` / `firebase.firestore()` via `firebase-*-compat.js` script tags.
 - **Two activity lists**: full `ACTIVITIES` (config.js, activity selector with `manualTime` flag) vs `MEDIA_ACTIVITIES`/`SHOW_ACTIVITIES` subset for YouTube/shows/movies.

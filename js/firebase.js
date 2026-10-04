@@ -1068,7 +1068,14 @@ function updateProfileUI() {
     if (emailEl) emailEl.textContent = fbUser.email;
     // verification banner (password accounts only)
     var verifyBanner = document.getElementById("prof-verify-banner");
-    if (verifyBanner) verifyBanner.style.display = (isPasswordProvider() && !fbUser.emailVerified) ? "block" : "none";
+    if (verifyBanner) verifyBanner.style.display = (isPasswordProvider() && !fbUser.emailVerified) ? "flex" : "none";
+    // verified badge in header
+    var badge = document.getElementById("prof-user-badge");
+    if (badge) {
+      badge.style.display = "";
+      if (!isPasswordProvider() || fbUser.emailVerified) { badge.className = "prof-user-badge ok"; badge.textContent = "Verificado"; }
+      else { badge.className = "prof-user-badge warn"; badge.textContent = "Sin verificar"; }
+    }
     // hide edit/account views when re-opening dropdown
     var editView = document.getElementById("prof-edit-view");
     if (editView) editView.style.display = "none";
@@ -1134,8 +1141,20 @@ async function showRichProfile(friendId, isSelf) {
   try {
   var overlay = document.getElementById("friend-modal-overlay");
   if (!overlay) return;
-  var profile = await getRichProfileData(friendId);
-  if (!profile) { console.warn("RichProfile: no profile data for", friendId); return; }
+  var profile = null;
+  try { profile = await getRichProfileData(friendId); }
+  catch (e) { console.error("showRichProfile load error:", e); }
+  if (!profile) {
+    // Error visible (antes moría en silencio): suele ser reglas sin desplegar.
+    document.getElementById("fm-name").textContent = "No se pudo cargar el perfil";
+    document.getElementById("fm-bio").textContent = "Revisa tu conexión y despliega las reglas: firebase deploy --only firestore:rules.";
+    var fcErr = document.getElementById("fm-friendcode");
+    if (fcErr) fcErr.textContent = "";
+    var stErr = document.getElementById("fm-stats");
+    if (stErr) stErr.innerHTML = "";
+    overlay.style.display = "flex";
+    return;
+  }
   var isOwn = isSelf || friendId === (fbUser && fbUser.uid);
   if (!isOwn && !isEmailVerifiedForSocial()) {
     setSyncStatus("Verifica tu email para ver perfiles.");
@@ -1395,7 +1414,7 @@ async function showRichProfile(friendId, isSelf) {
   renderProfileAchievements(friendId, isOwn, profile);
 
   overlay.style.display = "flex";
-  } catch (e) { console.error("showRichProfile error:", e); }
+  } catch (e) { console.error("showRichProfile error:", e); try { overlay.style.display = "flex"; } catch (_) {} }
 }
 // keep old name for backward compat
 var showFriendProfile = showRichProfile;
@@ -1530,7 +1549,7 @@ function renderSocialPage() {
     var codeEl0 = document.getElementById("social-friend-code");
     if (codeEl0) codeEl0.textContent = "---";
     var list0 = document.getElementById("social-friends-list");
-    if (list0) list0.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;">⚠️ Verifica tu email para ver amigos y ranking. Revisa tu bandeja o reenvía el correo desde tu perfil.</p>';
+    if (list0) list0.innerHTML = '<p style="color:var(--ink-soft);font-size:12px;margin:0;"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span> Verifica tu email para ver amigos y ranking. Revisa tu bandeja o reenvía el correo desde tu perfil.</p>';
     var feed0 = document.getElementById("social-activity-feed");
     if (feed0) feed0.innerHTML = "";
     var sec0 = document.getElementById("social-requests-section");
@@ -1571,7 +1590,9 @@ async function loadSocialFriendsList() {
   var _rank = 0, _prevMins = null;
   el.innerHTML = visibleFriends.map(function(f, i) {
     if (f.totalMinutes !== _prevMins) { _rank = i + 1; _prevMins = f.totalMinutes; }
-    var timeLabel = f.isPrivate ? "🔒 privado" : (Math.floor(f.totalMinutes / 60) + "h " + (f.totalMinutes % 60) + "m");
+    var timeLabel = f.isPrivate
+      ? '<span class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> privado'
+      : (Math.floor(f.totalMinutes / 60) + "h " + (f.totalMinutes % 60) + "m");
     var isSelf = f.isSelf;
     var nameLabel = esc(f.displayName) + (isSelf ? ' <span style="color:var(--ink-soft);font-weight:400;font-size:11px;">(t&uacute;)</span>' : '');
     var rankColors = ['#d4a017', '#a8a8a8', '#cd7f32']; // gold, silver, bronze
@@ -1870,6 +1891,21 @@ saveState = function() {
       resendBtn.textContent = translateAuthError(e);
       setTimeout(function() { resendBtn.textContent = "Reenviar verificación"; }, 4000);
     }
+  });
+
+  // reset password for own account (menu item while logged in)
+  var resetBtn = document.getElementById("prof-reset-btn");
+  if (resetBtn) resetBtn.addEventListener("click", async function() {
+    var label = resetBtn.querySelector(".grow");
+    var orig = "Restablecer contraseña";
+    function flash(msg) {
+      if (label) label.textContent = msg;
+      setTimeout(function() { if (label) label.textContent = orig; }, 3500);
+    }
+    try {
+      await firebase.auth().sendPasswordResetEmail(fbUser.email);
+      flash("¡Email enviado! Revisa tu bandeja");
+    } catch (e) { flash(translateAuthError(e)); }
   });
 
   // forgot password (from logged-out view, uses typed email)
