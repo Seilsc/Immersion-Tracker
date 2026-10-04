@@ -1101,8 +1101,7 @@ function updateProfileUI() {
         } else if (editAvatar) {
           loadGravatarBig(editAvatar);
         }
-        // highlight selected accent color (+ remember saved for cancel-revert)
-        window._savedAccent = d.accentColor || null;
+        // highlight selected accent color
         if (d.accentColor) {
           applyAccentColor(d.accentColor);
           document.querySelectorAll(".prof-accent-btn").forEach(function(b) {
@@ -1811,16 +1810,6 @@ saveState = function() {
   ["prof-edit-cancel", "prof-edit-back"].forEach(function(id) {
     var btn = document.getElementById(id);
     if (btn) btn.addEventListener("click", function() {
-      // revertir acento no guardado
-      if (window._pendingAccent) {
-        if (window._savedAccent) applyAccentColor(window._savedAccent);
-        else {
-          document.documentElement.style.removeProperty("--accent");
-          document.documentElement.style.removeProperty("--accent-soft");
-          try { localStorage.removeItem("immersion-accent"); } catch (e) {}
-        }
-        window._pendingAccent = null;
-      }
       var loggedIn = document.getElementById("prof-logged-in");
       var editView = document.getElementById("prof-edit-view");
       if (loggedIn) loggedIn.style.display = "block";
@@ -1851,9 +1840,11 @@ saveState = function() {
       var color = this.dataset.color;
       document.querySelectorAll(".prof-accent-btn").forEach(function(b) { b.style.borderColor = "transparent"; });
       this.style.borderColor = "var(--accent)";
-      window._pendingAccent = color;
-      applyAccentColor(color); // vista previa inmediata (se confirma al guardar)
-      syncEditPreview();
+      applyAccentColor(color);
+      if (fbUser) {
+        firebase.firestore().collection("users").doc(fbUser.uid).update({ accentColor: color }).catch(function() {});
+      }
+      try { syncEditPreview(); } catch (e) {}
     });
   });
 
@@ -1867,11 +1858,6 @@ saveState = function() {
       if (name) await fbUpdateDisplayName(name);
       var bio = bioInput ? bioInput.value.trim() : "";
       if (bio !== undefined) await fbUpdateBio(bio);
-      if (window._pendingAccent) {
-        await firebase.firestore().collection("users").doc(fbUser.uid).update({ accentColor: window._pendingAccent });
-        applyAccentColor(window._pendingAccent);
-        window._pendingAccent = null;
-      }
       if (status) { status.textContent = " Perfil actualizado"; status.style.color = "var(--green)"; }
       setTimeout(function() {
         var loggedIn = document.getElementById("prof-logged-in");
