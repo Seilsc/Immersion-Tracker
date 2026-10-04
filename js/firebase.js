@@ -1205,14 +1205,6 @@ async function showRichProfile(friendId, isSelf) {
     avatarEl.style.backgroundImage = "";
     avatarEl.textContent = (profile.displayName || "?")[0].toUpperCase();
   }
-  var heroEl = document.getElementById("fm-hero");
-  if (heroEl) {
-    var heroAcc = isOwn
-      ? ((getComputedStyle(document.documentElement).getPropertyValue("--accent") || "").trim() || "#b3502e")
-      : (profile.accentColor || "#2f5d4f");
-    heroEl.style.setProperty("--fm-accent", heroAcc);
-  }
-
   // stats cards — 3 per row
   var totalH = Math.floor(profile.totalMinutes / 60);
   var totalM = profile.totalMinutes % 60;
